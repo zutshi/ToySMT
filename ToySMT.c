@@ -573,16 +573,9 @@ struct variable* generate_OR_list(int var, int width)
 	//printf ("%s(%d, %d)\n", __FUNCTION__, var, width);
 	struct variable* rt=create_internal_variable(TY_BOOL, 1);
 	add_comment ("generate_OR_list");
-	char tmp[200]={0};
-	char buf[16];
-	// TODO make func like create_string_of_numbers_in_range
-	for (int i=0; i<width; i++)
-	{
-		snprintf (buf, 16, "%d ", var+i);
-		strncat(tmp, buf, 200);
-	};
-	//printf ("%s() tmp=%s\n", __FUNCTION__, tmp);
+	char* tmp=create_string_of_numbers_in_range(var, width);
 	add_clause("%s -%d", tmp, rt->var_no);
+	free(tmp);
 	for (int i=0; i<width; i++)
 		add_clause2(-(var+i), rt->var_no);
 	return rt;
