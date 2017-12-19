@@ -14,6 +14,7 @@
 #define OP_BVNEG 6
 #define OP_BVXOR 7
 #define OP_BVADD 8
+#define OP_BVSUB 9
 
 #define EXPR_ID 0
 #define EXPR_UNARY 1

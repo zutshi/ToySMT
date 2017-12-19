@@ -22,7 +22,7 @@ void yyerror(const char *);
 %token T_SMT_LIB_VERSION
 %token T_NUMBER T_ID T_TEXT T_CONST
 %token T_BOOL T_BITVEC
-%token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD
+%token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB
 %token T_WHITESPACE
 
 %type <text> T_ID
@@ -105,6 +105,10 @@ expr:	T_ID
         | T_L_PAREN T_BVADD expr expr T_R_PAREN
 	{
 		$$=create_bin_expr(OP_BVADD, $3, $4);
+	}
+        | T_L_PAREN T_BVSUB expr expr T_R_PAREN
+	{
+		$$=create_bin_expr(OP_BVSUB, $3, $4);
 	}
         ;
 

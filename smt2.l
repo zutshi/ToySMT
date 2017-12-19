@@ -34,6 +34,7 @@ void yyerror(char *);
 "bvneg"		{ return T_BVNEG; }
 "bvxor"		{ return T_BVXOR; }
 "bvadd"		{ return T_BVADD; }
+"bvsub"		{ return T_BVSUB; }
 "QF_BV"		{ return T_QF_BV; }
 ":smt-lib-version" { return T_SMT_LIB_VERSION; }
 #x[0-9a-fA-F]+	{

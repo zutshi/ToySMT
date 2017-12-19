@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "ToySMT.h"
+#include "utils.h"
 
 struct expr* create_unary_expr(int t, struct expr* op)
 {
@@ -50,6 +51,7 @@ char* op_name(int op)
 		case OP_BVNEG:	return "bvneg";
 		case OP_BVXOR:	return "bvxor";
 		case OP_BVADD:	return "bvadd";
+		case OP_BVSUB:	return "bvsub";
 		default:
 			assert(0);
 	};
@@ -95,7 +97,7 @@ struct variable
 	char* id; // name
 	int var_no; // in SAT instance
 	int width; // in bits, 1 for bool
-	// TODO: uint64_t? bitfield?
+	// TODO: uint64_t? bitmap?
 	uint32_t val; // what we've got from from SAT-solver's results. 0/1 for Bool
 	struct variable* next;
 };
@@ -111,8 +113,9 @@ void dump_all_variables(int dump_internal)
 	printf ("(model\n");
 	for (struct variable* v=vars; v; v=v->next)
 	{
-		if (v->internal==1 && dump_internal==0) // skip internal variables?
-			continue;
+		if (v->internal==1 && dump_internal==0)
+			continue; // skip internal variables
+
 		if (v->type==TY_BOOL)
 		{
 			assert (v->val<=1);
@@ -168,10 +171,8 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 	//printf ("%s(%s, %d)\n", __FUNCTION__, name, type);
 	//printf ("%s() line %d variables=%p\n", __FUNCTION__, __LINE__, vars);
 	if (find_variable(name)!=NULL)
-	{
-		printf ("Fatal error: variable %s is already defined\n", name);
-		exit(0);
-	};
+		die ("Fatal error: variable %s is already defined\n", name);
+
 	struct variable* v;
 	if (vars==NULL)
 	{
@@ -211,7 +212,7 @@ int next_internal_var=1;
 struct variable* create_internal_variable(int type, int width)
 {
 	char tmp[128];
-	snprintf (tmp, 128, "internal!%d", next_internal_var);
+	snprintf (tmp, sizeof(tmp), "internal!%d", next_internal_var);
 	next_internal_var++;
 	return create_variable(tmp, type, width, 1);
 };
@@ -242,7 +243,6 @@ void add_line(const char *s)
 	c->c=strdup(s);
 }
 
-// TODO copypaste -> die()
 void add_clause(const char* fmt, ...)
 {
 	va_list va;
@@ -260,17 +260,38 @@ void add_clause(const char* fmt, ...)
 	clauses_t++;
 };
 
+void add_clause1(int v1)
+{
+	add_clause ("%d", v1);
+};
+
+void add_clause2(int v1, int v2)
+{
+	add_clause ("%d %d", v1, v2);
+};
+
+void add_clause3(int v1, int v2, int v3)
+{
+	add_clause ("%d %d %d", v1, v2, v3);
+};
+
+void add_clause4(int v1, int v2, int v3, int v4)
+{
+	add_clause ("%d %d %d %d", v1, v2, v3, v4);
+};
+
 void add_comment(const char* s)
 {
 	//printf ("%s() %s\n", __FUNCTION__, s);
 
-	char tmp[200];
-	snprintf (tmp, 200, "c %s", s);
+	size_t len=strlen(s)+3;
+	char *tmp=malloc(len);
+	snprintf (tmp, len, "c %s", s);
 
 	add_line(tmp);
+	free (tmp);
 };
 
-	
 struct variable* generate_const(uint32_t val, int width)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, val, width);
@@ -281,12 +302,12 @@ struct variable* generate_const(uint32_t val, int width)
 		if ((val>>i)&1)
 		{
 			// add "always true" for this bit
-			add_clause ("%d", rt->var_no+i);
+			add_clause1 (rt->var_no+i);
 		}
 		else
 		{
 			// add "always false" for this bit
-			add_clause ("-%d", rt->var_no+i);
+			add_clause1 (-(rt->var_no+i));
 		}
 	};
 	return rt;
@@ -294,17 +315,14 @@ struct variable* generate_const(uint32_t val, int width)
 
 void add_Tseitin_NOT(int v1, int v2)
 {
-	add_clause ("-%d -%d", v1, v2);
-	add_clause ("%d %d", v1, v2);
+	add_clause2 (-v1, -v2);
+	add_clause2 (v1, v2);
 }
 
 struct variable* generate_NOT(struct variable* v)
 {
 	if (v->type!=TY_BOOL)
-	{
-		printf ("Error: type mismatch: 'not' takes bool expression in %s\n", v->id);
-		exit(0);
-	};
+		die ("Error: type mismatch: 'not' takes bool expression in %s\n", v->id);
 
 	struct variable* rt=create_internal_variable(TY_BOOL, 1);
 	add_comment ("generate_NOT");
@@ -315,10 +333,7 @@ struct variable* generate_NOT(struct variable* v)
 struct variable* generate_BVNOT(struct variable* v)
 {
 	if (v->type!=TY_BITVEC)
-	{
-		printf ("Error: type mismatch: 'bvnot' takes bitvec expression in %s\n", v->id);
-		exit(0);
-	};
+		die ("Error: type mismatch: 'bvnot' takes bitvec expression in %s\n", v->id);
 
 	struct variable* rt=create_internal_variable(TY_BITVEC, v->width);
 	add_comment ("generate_BVNOT");
@@ -333,10 +348,7 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2);
 struct variable* generate_BVNEG(struct variable* v)
 {
 	if (v->type!=TY_BITVEC)
-	{
-		printf ("Error: type mismatch: 'bvneg' takes bitvec expression in %s\n", v->id);
-		exit(0);
-	};
+		die ("Error: type mismatch: 'bvneg' takes bitvec expression in %s\n", v->id);
 
 	add_comment ("generate_BVNEG");
 	return generate_BVADD(generate_BVNOT(v), generate_const(1, v->width));
@@ -344,10 +356,10 @@ struct variable* generate_BVNEG(struct variable* v)
 
 void add_Tseitin_XOR(int v1, int v2, int v3)
 {
-	add_clause ("-%d -%d -%d", v1, v2, v3);
-	add_clause ("%d %d -%d", v1, v2, v3);
-	add_clause ("%d -%d %d", v1, v2, v3);
-	add_clause ("-%d %d %d", v1, v2, v3);
+	add_clause3 (-v1, -v2, -v3);
+	add_clause3 (v1, v2, -v3);
+	add_clause3 (v1, -v2, v3);
+	add_clause3 (-v1, v2, v3);
 };
 
 // TODO use Tseitin + gates?
@@ -355,20 +367,20 @@ void add_Tseitin_XOR(int v1, int v2, int v3)
 void add_FA(int a, int b, int cin, int s, int cout)
 {
 	add_comment("add_FA");
-        add_clause("-%d -%d -%d %d", a, b, cin, s);
-        add_clause("-%d -%d %d", a, b, cout);
-        add_clause("-%d -%d %d", a, cin, cout);
-        add_clause("-%d %d %d", a, cout, s);
-        add_clause("%d %d %d -%d", a, b, cin, s);
-        add_clause("%d %d -%d", a, b, cout);
-        add_clause("%d %d -%d", a, cin, cout);
-        add_clause("%d -%d -%d", a, cout, s);
-        add_clause("-%d -%d %d", b, cin, cout);
-        add_clause("-%d %d %d", b, cout, s);
-        add_clause("%d %d -%d", b, cin, cout);
-        add_clause("%d -%d -%d", b, cout, s);
-        add_clause("-%d %d %d", cin, cout, s);
-        add_clause("%d -%d -%d", cin, cout, s);
+        add_clause4(-a, -b, -cin, s);
+        add_clause3(-a, -b, cout);
+        add_clause3(-a, -cin, cout);
+        add_clause3(-a, cout, s);
+        add_clause4(a, b, cin, -s);
+        add_clause3(a, b, -cout);
+        add_clause3(a, cin, -cout);
+        add_clause3(a, -cout, -s);
+        add_clause3(-b, -cin, cout);
+        add_clause3(-b, cout, s);
+        add_clause3(b, cin, -cout);
+        add_clause3(b, -cout, -s);
+        add_clause3(-cin, cout, s);
+        add_clause3(cin, -cout, -s);
 };
 
 struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
@@ -379,9 +391,9 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
 	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
 	add_comment ("generate_BVADD");
 
-	// TODO make func:
+	// TODO make func?
 	struct variable* always_false=create_internal_variable(TY_BOOL, 1);
-	add_clause("-%d", always_false->var_no);
+	add_clause1(-always_false->var_no);
 
 	int carry=always_false->var_no;
 
@@ -392,6 +404,53 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
 		add_FA(v1->var_no+i, v2->var_no+i, carry, rt->var_no+i, carry_out->var_no);
 		// newly created carry_out is a carry_in for the next full-adder:
 		carry=carry_out->var_no;
+	};
+
+	return rt;
+};
+
+// TODO use Tseitin + gates?
+// full-subtractor, as found by Mathematica using truth table:
+void add_FS(int x, int y, int bin, int d, int bout)
+{
+	add_comment("add_FS");
+	add_clause3(-bin, bout, -d);
+	add_clause3(-bin, bout, -y);
+	add_clause4(-bin, -d, -x, y);
+	add_clause4(-bin, -d, x, -y);
+	add_clause4(-bin, d, -x, -y);
+	add_clause4(-bin, d, x, y);
+	add_clause3(bin, -bout, d);
+	add_clause3(bin, -bout, y);
+	add_clause4(bin, -d, -x, -y);
+	add_clause4(bin, -d, x, y);
+	add_clause4(bin, d, -x, y);
+	add_clause4(bin, d, x, -y);
+	add_clause3(-bout, d, y);
+	add_clause3(bout, -d, -y);
+};
+
+struct variable* generate_BVSUB(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
+	add_comment ("generate_BVSUB");
+
+	// TODO make func?
+	struct variable* always_false=create_internal_variable(TY_BOOL, 1);
+	add_clause1(-always_false->var_no);
+
+	int borrow=always_false->var_no;
+
+	// the first full-subtractor could be half-subtractor, but we make things simple here
+	for (int i=0; i<v1->width; i++)
+	{
+		struct variable* borrow_out=create_internal_variable(TY_BOOL, 1);
+		add_FS(v1->var_no+i, v2->var_no+i, borrow, rt->var_no+i, borrow_out->var_no);
+		// newly created borrow_out is a borrow_in for the next full-subtractor:
+		borrow=borrow_out->var_no;
 	};
 
 	return rt;
@@ -428,6 +487,7 @@ struct variable* generate_OR_list(int var, int width)
 	add_comment ("generate_OR_list");
 	char tmp[200]={0};
 	char buf[16];
+	// TODO make func like create_string_of_numbers_in_range
 	for (int i=0; i<width; i++)
 	{
 		snprintf (buf, 16, "%d ", var+i);
@@ -436,7 +496,7 @@ struct variable* generate_OR_list(int var, int width)
 	//printf ("%s() tmp=%s\n", __FUNCTION__, tmp);
 	add_clause("%s -%d", tmp, rt->var_no);
 	for (int i=0; i<width; i++)
-		add_clause("-%d %d", var+i, rt->var_no);
+		add_clause2(-(var+i), rt->var_no);
 	return rt;
 };
 
@@ -462,9 +522,9 @@ struct variable* generate_AND(struct variable* v1, struct variable* v2)
 {
 	struct variable* rt=create_internal_variable(TY_BOOL, 1);
 	add_comment ("generate_AND");
-	add_clause ("-%d -%d %d", v1->var_no, v2->var_no, rt->var_no);
-	add_clause ("%d -%d", v1->var_no, rt->var_no);
-	add_clause ("%d -%d", v2->var_no, rt->var_no);
+	add_clause3 (-v1->var_no, -v2->var_no, rt->var_no);
+	add_clause2 (v1->var_no, -rt->var_no);
+	add_clause2 (v2->var_no, -rt->var_no);
 	return rt;
 };
 
@@ -472,9 +532,9 @@ struct variable* generate_OR(struct variable* v1, struct variable* v2)
 {
 	struct variable* rt=create_internal_variable(TY_BOOL, 1);
 	add_comment ("generate_OR");
-	add_clause ("%d %d -%d", v1->var_no, v2->var_no, rt->var_no);
-	add_clause ("-%d %d", v1->var_no, rt->var_no);
-	add_clause ("-%d %d", v2->var_no, rt->var_no);
+	add_clause3 (v1->var_no, v2->var_no, -rt->var_no);
+	add_clause2 (-v1->var_no, rt->var_no);
+	add_clause2 (-v2->var_no, rt->var_no);
 	return rt;
 };
 
@@ -520,6 +580,7 @@ struct variable* generate(struct expr* e)
 			case OP_AND:	return generate_AND (v1, v2);
 			case OP_BVXOR:	return generate_BVXOR (v1, v2);
 			case OP_BVADD:	return generate_BVADD (v1, v2);
+			case OP_BVSUB:	return generate_BVSUB (v1, v2);
 			default:	assert(0);
 		}
 	};
@@ -535,7 +596,7 @@ void create_assert (struct expr* e)
 */
 	struct variable* v=generate(e);
 	add_comment ("create_assert()");
-	add_clause ("%d", v->var_no); // v must be True
+	add_clause1 (v->var_no); // v must be True
 };
 
 int sat=0;
@@ -570,29 +631,13 @@ void check_sat()
 			struct variable* sv;
 			if (v<0)
 			{
-				// don't do anything, "val" in all variable structures are cleared
-
-				//sv=find_variable_by_no(-v);
-				//if (sv->width==1)
-				//	sv->val=0;
-				//else
-				//	sv->val=sv->val|((-v)-sv->var_no)
-				//printf ("%d %s False\n", -v, find_variable_by_no(-v)->id);
+				// don't do anything at all, "val" in all variable structures are cleared at start
 			}
 			else
 			{
 				sv=find_variable_by_no(v);
-				//printf ("v=%d, sv->var_no=%d\n", v, sv->var_no);
-				//printf ("filling %s\n", sv->id);
-				if (sv->width==1)
-					sv->val=1; // FIXME do you need it?
-				else
-				{
-					//printf ("v - sv->var_no=%d\n", v - sv->var_no);
-					//sv->val=sv->val | (1<<(v - sv->var_no));
-					sv->val |= (1<<(v - sv->var_no));
-				};
-				//printf ("%d %s True\n", v, find_variable_by_no(v)->id);
+				// works for both bools and bitvecs:
+				sv->val |= (1<<(v - sv->var_no));
 			}
 			t=strtok(NULL, " \r\n");
 		}
@@ -606,8 +651,7 @@ void check_sat()
 	}
 	else
 	{
-		printf ("Fatal error. 1st line of minisat's answer unparsed: %s\n", buf);
-		exit(0);
+		die ("Fatal error. 1st line of minisat's answer unparsed: %s\n", buf);
 	}
 	fclose (f);
 };

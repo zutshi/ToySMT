@@ -1,7 +1,10 @@
 all: ToySMT
 
-ToySMT: lex.yy.o y.tab.o ToySMT.o
-	gcc ToySMT.o y.tab.o lex.yy.o -L/usr/local/lib/ -g -o ToySMT
+ToySMT: lex.yy.o y.tab.o ToySMT.o utils.o
+	gcc ToySMT.o y.tab.o lex.yy.o utils.o -L/usr/local/lib/ -g -o ToySMT
+
+utils.o: utils.c utils.h
+	gcc -Wall -c utils.c -g
 
 lex.yy.c: smt2.l y.tab.h
 	flex smt2.l
