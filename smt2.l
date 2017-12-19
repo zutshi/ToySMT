@@ -14,24 +14,24 @@ void yyerror(char *);
 
 %%
 
-";".*         { /* single-line comment, do nothing */ }
-"("           { return T_L_PAREN; }
-")"           { return T_R_PAREN; }
-"_"           { return T_UNDERSCORE; }
-"."           { return T_DOT; }
-"set-logic"   { return T_SET_LOGIC; }
-"set-info"    { return T_SET_INFO; }
-"declare-fun" { return T_DECLARE_FUN; }
-"assert"      { return T_ASSERT; }
-"check-sat"   { return T_CHECK_SAT; }
-"get-model"   { return T_GET_MODEL; }
-"Bool"        { return T_BOOL; }
-"BitVec"      { return T_BITVEC; }
-"="           { return T_EQ; }
-"not"         { return T_NOT; }
-"or"          { return T_OR; }
-"xor"         { return T_XOR; }
-"and"         { return T_AND; }
+";".*		{ /* single-line comment, do nothing */ }
+"("		{ return T_L_PAREN; }
+")"		{ return T_R_PAREN; }
+"_"		{ return T_UNDERSCORE; }
+"."		{ return T_DOT; }
+"set-logic"	{ return T_SET_LOGIC; }
+"set-info"	{ return T_SET_INFO; }
+"declare-fun"	{ return T_DECLARE_FUN; }
+"assert"	{ return T_ASSERT; }
+"check-sat"	{ return T_CHECK_SAT; }
+"get-model"	{ return T_GET_MODEL; }
+"Bool"		{ return T_BOOL; }
+"BitVec"	{ return T_BITVEC; }
+"="		{ return T_EQ; }
+"not"		{ return T_NOT; }
+"or"		{ return T_OR; }
+"xor"		{ return T_XOR; }
+"and"		{ return T_AND; }
 "bvnot"		{ return T_BVNOT; }
 "bvneg"		{ return T_BVNEG; }
 "bvxor"		{ return T_BVXOR; }
@@ -60,7 +60,10 @@ bv[0-9]+	{
 			return T_CONST;
 		}
 
-[a-zA-Z]+[a-zA-Z0-9]?  { yylval.text=strdup(yytext); return T_ID; }
+[a-zA-Z]+[a-zA-Z0-9]? 	{
+			yylval.text=strdup(yytext);
+			return T_ID;
+		}
 [0-9]+		{
 			if (sscanf(yytext, "%d", &yylval.i)!=1)
 				die ("Fatal error: can't parse %s as a decimal number\n", yytext);

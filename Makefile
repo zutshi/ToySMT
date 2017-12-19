@@ -1,7 +1,7 @@
 all: ToySMT
 
 ToySMT: lex.yy.o y.tab.o ToySMT.o utils.o
-	gcc ToySMT.o y.tab.o lex.yy.o utils.o -L/usr/local/lib/ -g -o ToySMT
+	gcc ToySMT.o y.tab.o lex.yy.o utils.o -L/usr/local/lib/ -lgc -g -o ToySMT
 
 utils.o: utils.c utils.h
 	gcc -Wall -c utils.c -g

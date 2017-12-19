@@ -6,13 +6,15 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+// Boehm garbage collector:
+#include <gc.h>
 
 #include "ToySMT.h"
 #include "utils.h"
 
 struct expr* create_unary_expr(int t, struct expr* op)
 {
-	struct expr* rt=calloc(sizeof(struct expr), 1);
+	struct expr* rt=GC_MALLOC(sizeof(struct expr));
 	rt->type=EXPR_UNARY;
 	rt->expr_type=t;
 	rt->op1=op;
@@ -21,7 +23,7 @@ struct expr* create_unary_expr(int t, struct expr* op)
 
 struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2)
 {
-	struct expr* rt=calloc(sizeof(struct expr), 1);
+	struct expr* rt=GC_MALLOC(sizeof(struct expr));
 	rt->type=EXPR_BINARY;
 	rt->expr_type=t;
 	rt->op1=op1;
@@ -32,7 +34,7 @@ struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2)
 struct expr* create_const_expr(uint32_t c, int w)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, c, w);
-	struct expr* rt=calloc(sizeof(struct expr), 1);
+	struct expr* rt=GC_MALLOC(sizeof(struct expr));
 	rt->type=EXPR_CONST;
 	rt->const_val=c;
 	rt->const_width=w;
@@ -182,13 +184,13 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 	struct variable* v;
 	if (vars==NULL)
 	{
-		v=vars=calloc(sizeof(struct variable), 1);
+		v=vars=GC_MALLOC(sizeof(struct variable));
 		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	}
 	else
 	{
 		for (v=vars; v->next; v=v->next);
-		v->next=calloc(sizeof(struct variable), 1);
+		v->next=GC_MALLOC(sizeof(struct variable));
 		v=v->next;
 		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	};
@@ -238,11 +240,11 @@ void add_line(const char *s)
 	struct clause* c;
 
 	if (clauses==NULL)
-		c=clauses=calloc(sizeof(struct clause), 1);
+		c=clauses=GC_MALLOC_ATOMIC(sizeof(struct clause));
 	else
 	{
 		for (c=clauses; c->next; c=c->next);
-		c->next=calloc(sizeof(struct clause), 1);
+		c->next=GC_MALLOC_ATOMIC(sizeof(struct clause));
 		c=c->next;
 	}
 
@@ -253,7 +255,6 @@ void add_clause(const char* fmt, ...)
 {
 	va_list va;
 	va_start (va, fmt);
-
 
 	char buf[200];
 	vsnprintf (buf, sizeof(buf), fmt, va);
@@ -291,11 +292,10 @@ void add_comment(const char* s)
 	//printf ("%s() %s\n", __FUNCTION__, s);
 
 	size_t len=strlen(s)+3;
-	char *tmp=malloc(len);
+	char *tmp=GC_MALLOC_ATOMIC(len);
 	snprintf (tmp, len, "c %s", s);
 
 	add_line(tmp);
-	free (tmp);
 };
 
 struct variable* generate_const(uint32_t val, int width)
@@ -575,7 +575,6 @@ struct variable* generate_OR_list(int var, int width)
 	add_comment ("generate_OR_list");
 	char* tmp=create_string_of_numbers_in_range(var, width);
 	add_clause("%s -%d", tmp, rt->var_no);
-	free(tmp);
 	for (int i=0; i<width; i++)
 		add_clause2(-(var+i), rt->var_no);
 	return rt;
@@ -707,7 +706,7 @@ void check_sat()
 		die ("Error: minisat execitable not found. install it please.\n");
 
 	size_t buflen=next_var_no*10;
-	char *buf=malloc(buflen);
+	char *buf=GC_MALLOC_ATOMIC(buflen);
 	assert(buf);
 
 	FILE* f=fopen ("result.txt", "rt");
@@ -736,7 +735,6 @@ void check_sat()
 				sv->val |= (1<<(v - sv->var_no));
 			}
 		}
-		free (array);
 		printf ("sat\n");
 		sat=true;
 	}

@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+// Boehm garbage collector:
+#include <gc.h>
 
 #include "ToySMT.h"
 
@@ -67,7 +69,7 @@ commandline: T_L_PAREN T_SET_LOGIC T_QF_BV T_R_PAREN
 
 expr:	T_ID
 	{
-		$$=calloc(sizeof(struct expr), 1);
+		$$=GC_MALLOC_ATOMIC(sizeof(struct expr));
 		$$->type=EXPR_ID;
 		$$->id=$1;
 	}

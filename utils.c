@@ -4,6 +4,9 @@
 #include <stdarg.h>
 #include <assert.h>
 
+// Boehm garbage collector:
+#include <gc.h>
+
 void die(const char* fmt, ...)
 {
 	va_list va;
@@ -18,7 +21,7 @@ void die(const char* fmt, ...)
 // allocates space for array
 int* list_of_numbers_to_array (char *s, size_t array_size, size_t *parsed)
 {
-	int *rt=malloc(array_size*sizeof(int));
+	int *rt=GC_MALLOC(array_size*sizeof(int));
 	assert(rt);
 	int i=0;
 	char *t=strtok(s, " \r\n");
@@ -36,7 +39,7 @@ int* list_of_numbers_to_array (char *s, size_t array_size, size_t *parsed)
 char* create_string_of_numbers_in_range(int begin, size_t size)
 {
 	size_t buflen=size*10;
-	char* buf=malloc(buflen);
+	char* buf=GC_MALLOC(buflen);
 	buf[0]=0;
 	for (int i=0; i<size; i++)
 	{
