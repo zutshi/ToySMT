@@ -238,7 +238,7 @@ void add_line(const char *s)
 	struct clause* c;
 
 	if (clauses==NULL)
-		c=clauses=calloc(sizeof(struct clause*), 1);
+		c=clauses=calloc(sizeof(struct clause), 1);
 	else
 	{
 		for (c=clauses; c->next; c=c->next);
