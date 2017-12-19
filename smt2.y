@@ -29,9 +29,9 @@ void yyerror(const char *);
 %token T_WHITESPACE
 
 %type <text> T_ID
-%type <text> T_TEXT
 %type <i> T_NUMBER
 %type <i> T_BV_DEC_CONST
+%type <i> unary_func
 %type <e> expr
 %type <e> T_CONST
 
@@ -67,6 +67,12 @@ commandline: T_L_PAREN T_SET_LOGIC T_QF_BV T_R_PAREN
 	}
         ;
 
+unary_func:
+	T_NOT		{ $$=OP_NOT; }
+	| T_BVNOT	{ $$=OP_BVNOT; }
+	| T_BVNEG	{ $$=OP_BVNEG; }
+	;
+
 expr:	T_ID
 	{
 		$$=GC_MALLOC_ATOMIC(sizeof(struct expr));
@@ -78,17 +84,9 @@ expr:	T_ID
 	{
 		$$=create_const_expr($3, $4);
 	}
-        | T_L_PAREN T_NOT expr T_R_PAREN
+        | T_L_PAREN unary_func expr T_R_PAREN
 	{
-		$$=create_unary_expr(OP_NOT, $3);
-	}
-        | T_L_PAREN T_BVNOT expr T_R_PAREN
-	{
-		$$=create_unary_expr(OP_BVNOT, $3);
-	}
-        | T_L_PAREN T_BVNEG expr T_R_PAREN
-	{
-		$$=create_unary_expr(OP_BVNEG, $3);
+		$$=create_unary_expr($2, $3);
 	}
         | T_L_PAREN T_EQ expr expr T_R_PAREN
 	{
