@@ -20,14 +20,16 @@ void yyerror(const char *);
 %token T_L_PAREN T_R_PAREN T_UNDERSCORE T_DOT
 %token T_SET_LOGIC T_SET_INFO T_DECLARE_FUN T_ASSERT T_CHECK_SAT T_GET_MODEL T_QF_BV T_BVNOT T_BVNEG
 %token T_SMT_LIB_VERSION
-%token T_NUMBER T_ID T_TEXT T_CONST
+%token T_NUMBER T_ID T_TEXT T_CONST T_BV_DEC_CONST
 %token T_BOOL T_BITVEC
 %token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB
+%token T_BVUGE T_BVULE T_BVUGT T_BVULT
 %token T_WHITESPACE
 
 %type <text> T_ID
 %type <text> T_TEXT
 %type <i> T_NUMBER
+%type <i> T_BV_DEC_CONST
 %type <e> expr
 %type <e> T_CONST
 
@@ -70,6 +72,10 @@ expr:	T_ID
 		$$->id=$1;
 	}
 	| T_CONST
+        | T_L_PAREN T_UNDERSCORE T_BV_DEC_CONST T_NUMBER T_R_PAREN
+	{
+		$$=create_const_expr($3, $4);
+	}
         | T_L_PAREN T_NOT expr T_R_PAREN
 	{
 		$$=create_unary_expr(OP_NOT, $3);
@@ -109,6 +115,22 @@ expr:	T_ID
         | T_L_PAREN T_BVSUB expr expr T_R_PAREN
 	{
 		$$=create_bin_expr(OP_BVSUB, $3, $4);
+	}
+        | T_L_PAREN T_BVUGE expr expr T_R_PAREN
+	{
+		$$=create_bin_expr(OP_BVUGE, $3, $4);
+	}
+        | T_L_PAREN T_BVULE expr expr T_R_PAREN
+	{
+		$$=create_bin_expr(OP_BVULE, $3, $4);
+	}
+        | T_L_PAREN T_BVUGT expr expr T_R_PAREN
+	{
+		$$=create_bin_expr(OP_BVUGT, $3, $4);
+	}
+        | T_L_PAREN T_BVULT expr expr T_R_PAREN
+	{
+		$$=create_bin_expr(OP_BVULT, $3, $4);
 	}
         ;
 

@@ -52,6 +52,10 @@ char* op_name(int op)
 		case OP_BVXOR:	return "bvxor";
 		case OP_BVADD:	return "bvadd";
 		case OP_BVSUB:	return "bvsub";
+		case OP_BVUGE:	return "bvuge";
+		case OP_BVULE:	return "bvule";
+		case OP_BVUGT:	return "bvugt";
+		case OP_BVULT:	return "bvult";
 		default:
 			assert(0);
 	};
@@ -456,6 +460,88 @@ struct variable* generate_BVSUB(struct variable* v1, struct variable* v2)
 	return rt;
 };
 
+// only borrow-out is returned!
+// TODO join two functions into one?!
+struct variable* generate_BVSUB_borrow(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
+	add_comment ("generate_BVSUB_borrow");
+
+	// TODO make func?
+	struct variable* always_false=create_internal_variable(TY_BOOL, 1);
+	add_clause1(-always_false->var_no);
+
+	int borrow=always_false->var_no;
+	struct variable* borrow_out;
+
+	// the first full-subtractor could be half-subtractor, but we make things simple here
+	for (int i=0; i<v1->width; i++)
+	{
+		borrow_out=create_internal_variable(TY_BOOL, 1);
+		add_FS(v1->var_no+i, v2->var_no+i, borrow, rt->var_no+i, borrow_out->var_no);
+		// newly created borrow_out is a borrow_in for the next full-subtractor:
+		borrow=borrow_out->var_no;
+	};
+
+	return borrow_out;
+};
+
+// fwd decl:
+struct variable* generate_EQ(struct variable* v1, struct variable* v2);
+struct variable* generate_OR(struct variable* v1, struct variable* v2);
+
+struct variable* generate_BVULT(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
+	add_comment (__FUNCTION__);
+
+	//return generate_OR(generate_BVSUB_borrow(v1, v2), generate_EQ(v1, v2));
+	//return generate_NOT(generate_BVSUB_borrow(v1, v2));
+	return generate_BVSUB_borrow(v1, v2);
+};
+
+struct variable* generate_BVULE(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
+	add_comment (__FUNCTION__);
+
+	//return generate_OR(generate_BVSUB_borrow(v1, v2), generate_EQ(v1, v2));
+	return generate_OR(generate_BVULT(v1, v2), generate_EQ(v1, v2));
+};
+
+struct variable* generate_BVUGT(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
+	add_comment (__FUNCTION__);
+
+	return generate_BVSUB_borrow(v2, v1);
+	//return generate_OR(generate_NOT(generate_BVSUB_borrow(v1, v2)), generate_EQ(v1, v2));
+};
+
+struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
+	add_comment (__FUNCTION__);
+
+	return generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
+	//return generate_OR(generate_NOT(generate_BVSUB_borrow(v1, v2)), generate_EQ(v1, v2));
+};
+
 struct variable* generate_XOR(struct variable* v1, struct variable* v2)
 {
 	assert(v1->type==TY_BOOL);
@@ -581,6 +667,10 @@ struct variable* generate(struct expr* e)
 			case OP_BVXOR:	return generate_BVXOR (v1, v2);
 			case OP_BVADD:	return generate_BVADD (v1, v2);
 			case OP_BVSUB:	return generate_BVSUB (v1, v2);
+			case OP_BVUGE:	return generate_BVUGE (v1, v2);
+			case OP_BVULE:	return generate_BVULE (v1, v2);
+			case OP_BVUGT:	return generate_BVUGT (v1, v2);
+			case OP_BVULT:	return generate_BVULT (v1, v2);
 			default:	assert(0);
 		}
 	};
@@ -631,12 +721,15 @@ void check_sat()
 			struct variable* sv;
 			if (v<0)
 			{
-				// don't do anything at all, "val" in all variable structures are cleared at start
+				// ? don't do anything at all, "val" in all variable structures are cleared at start
+				sv=find_variable_by_no(v);
+				// works for both bools and bitvecs. clear bit.
+				sv->val &= ~(1<<(v - sv->var_no));
 			}
 			else
 			{
 				sv=find_variable_by_no(v);
-				// works for both bools and bitvecs:
+				// works for both bools and bitvecs. set bit.
 				sv->val |= (1<<(v - sv->var_no));
 			}
 			t=strtok(NULL, " \r\n");

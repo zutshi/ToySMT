@@ -6,6 +6,8 @@
 #include <string.h>
 
 #include "ToySMT.h"
+// die():
+#include "utils.h"
 
 void yyerror(char *);
 %}
@@ -35,15 +37,23 @@ void yyerror(char *);
 "bvxor"		{ return T_BVXOR; }
 "bvadd"		{ return T_BVADD; }
 "bvsub"		{ return T_BVSUB; }
+"bvugt"		{ return T_BVUGT; }
+"bvuge"		{ return T_BVUGE; }
+"bvule"		{ return T_BVULE; }
+"bvult"		{ return T_BVULT; }
 "QF_BV"		{ return T_QF_BV; }
 ":smt-lib-version" { return T_SMT_LIB_VERSION; }
+bv[0-9]+	{
+			if (sscanf(yytext+2, "%d", &yylval.i)!=1)
+				die ("Fatal error: can't parse %s as a decimal number\n", yytext);
+
+			return T_BV_DEC_CONST;
+		}
 #x[0-9a-fA-F]+	{
 			uint32_t val;
 			if (sscanf(yytext+2, "%x", &val)!=1)
-			{
-				printf ("Fatal error: can't parse %s as a hexadecimal number\n", yytext);
-				exit(0);
-			};
+				die ("Fatal error: can't parse %s as a hexadecimal number\n", yytext);
+
 			int width=strlen(yytext+2)*4;
 			//printf ("%s:%d width=%d\n", __FUNCTION__, __LINE__, width);
 			yylval.e=create_const_expr(val, width);
@@ -53,10 +63,8 @@ void yyerror(char *);
 [a-zA-Z]+[a-zA-Z0-9]?  { yylval.text=strdup(yytext); return T_ID; }
 [0-9]+		{
 			if (sscanf(yytext, "%d", &yylval.i)!=1)
-			{
-				printf ("Fatal error: can't parse %s as a decimal number\n", yytext);
-				exit(0);
-			};
+				die ("Fatal error: can't parse %s as a decimal number\n", yytext);
+
 			return T_NUMBER;
 		}
 

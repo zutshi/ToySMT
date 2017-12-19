@@ -7,4 +7,6 @@
 ./ToySMT tests/DeMorgan1.smt > tmp && diff tmp tests/DeMorgan1.correct
 ./ToySMT tests/DeMorgan2.smt > tmp && diff tmp tests/DeMorgan2.correct
 ./ToySMT tests/bvsub_test.smt > tmp && diff tmp tests/bvsub_test.correct
+./ToySMT tests/bvugt_bvult_test.smt > tmp && diff tmp tests/bvugt_bvult_test.correct
+./ToySMT tests/bvuge_bvule_test.smt > tmp && diff tmp tests/bvuge_bvule_test.correct
 
