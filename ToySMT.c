@@ -1,9 +1,11 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "ToySMT.h"
 #include "utils.h"
@@ -110,14 +112,14 @@ struct variable* vars=NULL;
 
 char* false_true_s[2]={"false", "true"};
 
-void dump_all_variables(int dump_internal)
+void dump_all_variables(bool dump_internal)
 {
 	//for (struct variable* v=vars; v; v=v->next)
 	//	printf ("type=%d id=%s width=%d val=0x%x\n", v->type, v->id, v->width, v->val);
 	printf ("(model\n");
 	for (struct variable* v=vars; v; v=v->next)
 	{
-		if (v->internal==1 && dump_internal==0)
+		if (v->internal==1 && dump_internal==false)
 			continue; // skip internal variables
 
 		if (v->type==TY_BOOL)
@@ -689,58 +691,66 @@ void create_assert (struct expr* e)
 	add_clause1 (v->var_no); // v must be True
 };
 
-int sat=0;
+bool sat=false;
 
-void check_sat()
+void write_CNF(char *fname)
 {
-	//printf ("%s()\n", __FUNCTION__);
-	FILE* f=fopen ("tmp.cnf", "wt");
+	FILE* f=fopen (fname, "wt");
 	assert (f!=NULL);
 	fprintf (f, "p cnf %d %d\n", next_var_no-1, clauses_t);
 	for (struct clause* c=clauses; c; c=c->next)
 		fprintf (f, "%s\n", c->c);
 	fclose (f);
+};
+
+void check_sat()
+{
+	//printf ("%s()\n", __FUNCTION__);
+	write_CNF ("tmp.cnf");
+
+	unlink ("result.txt");
 	int rt=system ("minisat tmp.cnf result.txt > /dev/null");
-	//printf ("rt=%d\n", rt);
+	if (rt==32512)
+		die ("Error: minisat execitable not found. install it please.\n");
 
-	char buf[1024];
+	size_t buflen=next_var_no*10;
+	char *buf=malloc(buflen);
+	assert(buf);
 
-	f=fopen ("result.txt", "rt");
-	fgets (buf, 1024, f);
+	FILE* f=fopen ("result.txt", "rt");
+	fgets (buf, buflen, f);
 	if (strncmp (buf, "SAT", 3)==0)
 	{
-		fgets (buf, 1024, f);
+		fgets (buf, buflen, f);
 		//printf ("2nd line: %s\n", buf);
-		char *t=strtok(buf, " \r\n");
-		while (t!=NULL)
+		size_t total;	
+		int *array=list_of_numbers_to_array(buf, next_var_no, &total);
+		for (int i=0; array[i]; i++)
 		{
-			int v;
-			assert (sscanf (t, "%d", &v)==1);
-			if (v==0)
-				break;
 			struct variable* sv;
+			// works for both bools and bitvecs. set bit.
+			int v=array[i];
 			if (v<0)
 			{
-				// ? don't do anything at all, "val" in all variable structures are cleared at start
-				sv=find_variable_by_no(v);
-				// works for both bools and bitvecs. clear bit.
-				sv->val &= ~(1<<(v - sv->var_no));
+				sv=find_variable_by_no(-v);
+				assert(sv);
+				sv->val &= ~(1<<((-v) - sv->var_no));
 			}
 			else
 			{
 				sv=find_variable_by_no(v);
-				// works for both bools and bitvecs. set bit.
+				assert(sv);
 				sv->val |= (1<<(v - sv->var_no));
 			}
-			t=strtok(NULL, " \r\n");
 		}
+		free (array);
 		printf ("sat\n");
-		sat=1;
+		sat=true;
 	}
 	else if (strncmp (buf, "UNSAT", 5)==0)
 	{
 		printf ("unsat\n");
-		sat=0;
+		sat=false;
 	}
 	else
 	{
@@ -752,7 +762,7 @@ void check_sat()
 void get_model()
 {
 	if (sat)
-		dump_all_variables(0);
+		dump_all_variables(false);
 	else
 		printf ("(error \"model is not available\")\n");
 }
