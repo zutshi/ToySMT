@@ -88,6 +88,7 @@ expr:	T_ID
 		$$=GC_MALLOC_ATOMIC(sizeof(struct expr));
 		$$->type=EXPR_ID;
 		$$->id=$1;
+		$$->next=NULL;
 	}
 	| T_CONST
         | T_L_PAREN T_UNDERSCORE T_BV_DEC_CONST T_NUMBER T_R_PAREN

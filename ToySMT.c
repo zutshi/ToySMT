@@ -18,6 +18,7 @@ void print_expr(struct expr* e);
 struct expr* create_unary_expr(enum OP t, struct expr* op)
 {
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
+	memset (rt, 0, sizeof(struct expr));
 	rt->type=EXPR_UNARY;
 	rt->op=t;
 	rt->op1=op;
@@ -36,6 +37,7 @@ struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2)
 	printf ("\n");
 */
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
+	memset (rt, 0, sizeof(struct expr));
 	rt->type=EXPR_BINARY;
 	rt->op=t;
 	rt->op1=op1;
@@ -120,6 +122,7 @@ struct expr* create_const_expr(uint32_t c, int w)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, c, w);
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
+	memset (rt, 0, sizeof(struct expr));
 	rt->type=EXPR_CONST;
 	rt->const_val=c;
 	rt->const_width=w;
@@ -281,7 +284,7 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	};
 	v->type=type;
-	v->id=strdup(name);
+	v->id=strdup(name); // TODO replace strdup with something
 	if (type==TY_BOOL)
 	{
 		v->var_no=next_var_no;
