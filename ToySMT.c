@@ -12,6 +12,9 @@
 #include "ToySMT.h"
 #include "utils.h"
 
+// fwd decl:
+void print_expr(struct expr* e);
+
 struct expr* create_unary_expr(int t, struct expr* op)
 {
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
@@ -23,12 +26,43 @@ struct expr* create_unary_expr(int t, struct expr* op)
 
 struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2)
 {
+/*
+	printf ("%s()\n", __FUNCTION__);
+	printf ("op1=");
+	print_expr(op1);
+	printf ("\n");
+	printf ("op2=");
+	print_expr(op2);
+	printf ("\n");
+*/
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
 	rt->type=EXPR_BINARY;
 	rt->expr_type=t;
 	rt->op1=op1;
 	rt->op2=op2;
 	return rt;
+};
+
+// from smt2.y:
+int yylineno;
+
+// fwd decl;
+char* op_name(int op);
+
+struct expr* create_vararg_expr(int t, struct expr* args)
+{
+	// this provides left associativity.
+
+	// be sure at least two expr in chain:
+	if (args->next==NULL)
+		die("line %d: %s requires 2 or more arguments!\n", yylineno, op_name(t));
+
+	if (args->next->next==NULL)
+		// only two expr in chain:
+		return create_bin_expr(t, args->next, args);
+	else
+		// >2 expr in chain:
+		return create_bin_expr(t, create_vararg_expr(t, args->next), args);
 };
 
 struct expr* create_const_expr(uint32_t c, int w)
@@ -328,7 +362,7 @@ void add_Tseitin_NOT(int v1, int v2)
 struct variable* generate_NOT(struct variable* v)
 {
 	if (v->type!=TY_BOOL)
-		die ("Error: type mismatch: 'not' takes bool expression in %s\n", v->id);
+		die ("Error: sort mismatch: 'not' takes bool expression, which is not in %s\n", v->id);
 
 	struct variable* rt=create_internal_variable(TY_BOOL, 1);
 	add_comment ("generate_NOT");
@@ -339,7 +373,7 @@ struct variable* generate_NOT(struct variable* v)
 struct variable* generate_BVNOT(struct variable* v)
 {
 	if (v->type!=TY_BITVEC)
-		die ("Error: type mismatch: 'bvnot' takes bitvec expression in %s\n", v->id);
+		die ("Error: sort mismatch: 'bvnot' takes bitvec expression, which is not in %s\n", v->id);
 
 	struct variable* rt=create_internal_variable(TY_BITVEC, v->width);
 	add_comment ("generate_BVNOT");
@@ -354,7 +388,7 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2);
 struct variable* generate_BVNEG(struct variable* v)
 {
 	if (v->type!=TY_BITVEC)
-		die ("Error: type mismatch: 'bvneg' takes bitvec expression in %s\n", v->id);
+		die ("Error: sort mismatch: 'bvneg' takes bitvec expression, which is not in %s\n", v->id);
 
 	add_comment ("generate_BVNEG");
 	return generate_BVADD(generate_BVNOT(v), generate_const(1, v->width));
@@ -705,6 +739,7 @@ void check_sat()
 	if (rt==32512)
 		die ("Error: minisat execitable not found. install it please.\n");
 
+	// TODO parse_SAT_response()
 	size_t buflen=next_var_no*10;
 	char *buf=GC_MALLOC_ATOMIC(buflen);
 	assert(buf);

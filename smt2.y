@@ -33,6 +33,7 @@ void yyerror(const char *);
 %type <i> T_BV_DEC_CONST
 %type <i> unary_func
 %type <e> expr
+%type <e> expr_list
 %type <e> T_CONST
 
 %error-verbose
@@ -73,6 +74,15 @@ unary_func:
 	| T_BVNEG	{ $$=OP_BVNEG; }
 	;
 
+expr_list:	expr
+		| expr_list expr
+		{
+			// this is important. provide left associativity:
+			$2->next=$1;
+			$$=$2;
+		}
+		;
+
 expr:	T_ID
 	{
 		$$=GC_MALLOC_ATOMIC(sizeof(struct expr));
@@ -92,29 +102,29 @@ expr:	T_ID
 	{
 		$$=create_bin_expr(OP_EQ, $3, $4);
 	}
-        | T_L_PAREN T_OR expr expr T_R_PAREN
+        | T_L_PAREN T_OR expr_list T_R_PAREN
 	{
-		$$=create_bin_expr(OP_OR, $3, $4);
+		$$=create_vararg_expr(OP_OR, $3);
 	}
-        | T_L_PAREN T_XOR expr expr T_R_PAREN
+        | T_L_PAREN T_XOR expr_list T_R_PAREN
 	{
-		$$=create_bin_expr(OP_XOR, $3, $4);
+		$$=create_vararg_expr(OP_XOR, $3);
 	}
-        | T_L_PAREN T_AND expr expr T_R_PAREN
+        | T_L_PAREN T_AND expr_list T_R_PAREN
 	{
-		$$=create_bin_expr(OP_AND, $3, $4);
+		$$=create_vararg_expr(OP_AND, $3);
 	}
-        | T_L_PAREN T_BVXOR expr expr T_R_PAREN
+        | T_L_PAREN T_BVXOR expr_list T_R_PAREN
 	{
-		$$=create_bin_expr(OP_BVXOR, $3, $4);
+		$$=create_vararg_expr(OP_BVXOR, $3);
 	}
-        | T_L_PAREN T_BVADD expr expr T_R_PAREN
+        | T_L_PAREN T_BVADD expr_list T_R_PAREN
 	{
-		$$=create_bin_expr(OP_BVADD, $3, $4);
+		$$=create_vararg_expr(OP_BVADD, $3);
 	}
-        | T_L_PAREN T_BVSUB expr expr T_R_PAREN
+        | T_L_PAREN T_BVSUB expr_list T_R_PAREN
 	{
-		$$=create_bin_expr(OP_BVSUB, $3, $4);
+		$$=create_vararg_expr(OP_BVSUB, $3);
 	}
         | T_L_PAREN T_BVUGE expr expr T_R_PAREN
 	{

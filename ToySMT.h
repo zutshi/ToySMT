@@ -42,10 +42,14 @@ struct expr
 	//uint64_t const_val;
 	uint32_t const_val;
 	int const_width; // in bits
+
+	// in case of chained expressions:
+	struct expr *next;
 };
 
 struct expr* create_unary_expr(int t, struct expr* op);
 struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2);
+struct expr* create_vararg_expr(int t, struct expr* args);
 struct expr* create_const_expr(uint32_t c, int w);
 struct variable* create_variable(char *name, int type, int width, int internal);
 void create_assert (struct expr* e);
