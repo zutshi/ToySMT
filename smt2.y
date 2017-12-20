@@ -25,7 +25,7 @@ void yyerror(const char *);
 %token T_NUMBER T_ID T_TEXT T_CONST T_BV_DEC_CONST
 %token T_BOOL T_BITVEC
 %token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB
-%token T_BVUGE T_BVULE T_BVUGT T_BVULT
+%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT
 %token T_WHITESPACE
 
 %type <text> T_ID
@@ -125,6 +125,10 @@ expr:	T_ID
         | T_L_PAREN T_BVSUB expr_list T_R_PAREN
 	{
 		$$=create_vararg_expr(OP_BVSUB, $3);
+	}
+        | T_L_PAREN T_DISTINCT expr_list T_R_PAREN
+	{
+		$$=create_distinct_expr($3);
 	}
         | T_L_PAREN T_BVUGE expr expr T_R_PAREN
 	{

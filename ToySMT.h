@@ -9,6 +9,7 @@ enum OP
 {
 	OP_NOT,
 	OP_EQ,
+	OP_NEQ,
 	OP_AND,
 	OP_OR,
 	OP_XOR,
@@ -56,6 +57,7 @@ struct expr
 struct expr* create_unary_expr(enum OP t, struct expr* op);
 struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2);
 struct expr* create_vararg_expr(enum OP t, struct expr* args);
+struct expr* create_distinct_expr(struct expr* args);
 struct expr* create_const_expr(uint32_t c, int w);
 struct variable* create_variable(char *name, int type, int width, int internal);
 void create_assert (struct expr* e);

@@ -41,6 +41,7 @@ void yyerror(char *);
 "bvuge"		{ return T_BVUGE; }
 "bvule"		{ return T_BVULE; }
 "bvult"		{ return T_BVULT; }
+"distinct"	{ return T_DISTINCT; }
 "QF_BV"		{ return T_QF_BV; }
 ":smt-lib-version" { return T_SMT_LIB_VERSION; }
 bv[0-9]+	{
@@ -60,7 +61,7 @@ bv[0-9]+	{
 			return T_CONST;
 		}
 
-[a-zA-Z]+[a-zA-Z0-9]? 	{
+[a-zA-Z]+[a-zA-Z0-9]* 	{
 			yylval.text=strdup(yytext);
 			return T_ID;
 		}

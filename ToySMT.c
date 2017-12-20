@@ -51,11 +51,19 @@ char* op_name(enum OP op);
 
 struct expr* create_vararg_expr(enum OP t, struct expr* args)
 {
+/*
+	printf ("%s(). input=\n", __FUNCTION__);
+	for (struct expr* e=args; e; e=e->next)
+	{
+		print_expr(e);
+		printf ("\n");
+	};
+*/
 	// this provides left associativity.
 
 	// be sure at least two expr in chain:
 	if (args->next==NULL)
-		die("line %d: %s requires 2 or more arguments!\n", yylineno, op_name(t));
+		die("line %d: '%s' requires 2 or more arguments!\n", yylineno, op_name(t));
 
 	if (args->next->next==NULL)
 		// only two expr in chain:
@@ -64,6 +72,49 @@ struct expr* create_vararg_expr(enum OP t, struct expr* args)
 		// >2 expr in chain:
 		return create_bin_expr(t, create_vararg_expr(t, args->next), args);
 };
+
+struct expr* create_distinct_expr(struct expr* args)
+{
+/*
+	printf ("%s(). input=\n", __FUNCTION__);
+	for (struct expr* e=args; e; e=e->next)
+	{
+		print_expr(e);
+		printf ("\n");
+	};
+*/
+	// for 3 args:
+	// and (a!=b, a!=c, b!=c)
+
+	// be sure at least two expr in chain:
+	if (args->next==NULL)
+		die("line %d: 'distinct' requires 2 or more arguments!\n", yylineno);
+	
+	if (args->next->next==NULL)
+		// only two expr in chain:
+		return create_bin_expr (OP_NEQ, args->next, args);
+	else
+	{
+		// >2 expr in chain:
+		struct expr* e1=args;
+		struct expr* big_AND_expr=NULL;
+		for (struct expr* e2=args->next; e2; e2=e2->next)
+		{
+			struct expr* t=create_bin_expr (OP_NEQ, e1, e2);
+			t->next=big_AND_expr;
+			big_AND_expr=t;
+		};
+		// at this moment, big_AND_expr is chained expression of expr we will pass inside AND(...)
+		struct expr *t=create_distinct_expr(args->next);
+		t->next=big_AND_expr;
+/*
+		printf ("%s(). what we passing inside AND(...):\n", __FUNCTION__);
+		print_expr(t);
+		printf ("\n");
+*/
+		return create_vararg_expr(OP_AND, t);
+	};
+}
 
 struct expr* create_const_expr(uint32_t c, int w)
 {
@@ -81,6 +132,7 @@ char* op_name(enum OP op)
 	{
 		case OP_NOT:	return "not";
 		case OP_EQ:	return "=";
+		case OP_NEQ:	return "!="; // supported in SMT-LIB 2.x? not sure.
 		case OP_OR:	return "or";
 		case OP_XOR:	return "xor";
 		case OP_AND:	return "and";
@@ -271,6 +323,8 @@ struct clause *clauses=NULL;
 
 void add_line(const char *s)
 {
+	//return;
+
 	struct clause* c;
 
 	if (clauses==NULL)
@@ -521,7 +575,7 @@ struct variable* generate_BVSUB_borrow(struct variable* v1, struct variable* v2)
 		// newly created borrow_out is a borrow_in for the next full-subtractor:
 		borrow=borrow_out->var_no;
 	};
-
+	//printf ("%s() returns %s\n", __FUNCTION__, borrow_out->id);
 	return borrow_out;
 };
 
@@ -551,7 +605,9 @@ struct variable* generate_BVULE(struct variable* v1, struct variable* v2)
 	add_comment (__FUNCTION__);
 
 	//return generate_OR(generate_BVSUB_borrow(v1, v2), generate_EQ(v1, v2));
-	return generate_OR(generate_BVULT(v1, v2), generate_EQ(v1, v2));
+	struct variable *v=generate_OR(generate_BVULT(v1, v2), generate_EQ(v1, v2));
+	//printf ("%s() returns %s\n", __FUNCTION__, v->id);
+	return v;
 };
 
 struct variable* generate_BVUGT(struct variable* v1, struct variable* v2)
@@ -574,8 +630,9 @@ struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
 	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
 	add_comment (__FUNCTION__);
 
-	return generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
-	//return generate_OR(generate_NOT(generate_BVSUB_borrow(v1, v2)), generate_EQ(v1, v2));
+	struct variable *v=generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
+	//printf ("%s() returns %s\n", __FUNCTION__, v->id);
+	return v;
 };
 
 struct variable* generate_XOR(struct variable* v1, struct variable* v2)
@@ -621,15 +678,30 @@ struct variable* generate_EQ(struct variable* v1, struct variable* v2)
 	{
 		assert(v2->width==1);
 		add_comment ("generate_EQ");
-		return generate_NOT(generate_XOR(v1, v2));
+		struct variable *v=generate_NOT(generate_XOR(v1, v2));
+		//printf ("%s() returns %s (Bool)\n", __FUNCTION__, v->id);
+		return v;
 	}
 	else
 	{
-		assert(v1->width==v2->width);
+		if(v1->width!=v2->width)
+		{
+			printf ("line %d. = can't work on bitvectors of different widths. you supplied %d and %d\n",
+				yylineno, v1->width, v2->width);
+			printf ("v1=%s, v2=%s\n", v1->id, v2->id);
+			exit(0);
+		};
 		add_comment ("generate_EQ for two bitvectors");
 		struct variable* t=generate_BVXOR(v1,v2);
-		return generate_NOT(generate_OR_list(t->var_no, t->width));
+		struct variable* v=generate_NOT(generate_OR_list(t->var_no, t->width));
+		//printf ("%s() returns %s (bitvec %d)\n", __FUNCTION__, v->id, v->width);
+		return v;
 	};
+};
+
+struct variable* generate_NEQ(struct variable* v1, struct variable* v2)
+{
+	return generate_NOT(generate_EQ(v1,v2));
 };
 
 struct variable* generate_AND(struct variable* v1, struct variable* v2)
@@ -689,6 +761,7 @@ struct variable* generate(struct expr* e)
 		switch (e->op)
 		{
 			case OP_EQ:	return generate_EQ (v1, v2);
+			case OP_NEQ:	return generate_NEQ (v1, v2);
 			case OP_OR:	return generate_OR (v1, v2);
 			case OP_XOR:	return generate_XOR (v1, v2);
 			case OP_AND:	return generate_AND (v1, v2);
