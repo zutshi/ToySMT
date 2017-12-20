@@ -320,11 +320,22 @@ struct clause
 };
 
 struct clause *clauses=NULL;
+struct clause *last_clause=NULL;
 
 void add_line(const char *s)
 {
-	//return;
+	if (clauses==NULL)
+		last_clause=clauses=GC_MALLOC(sizeof(struct clause));
+	else
+	{
+		struct clause *cl=GC_MALLOC(sizeof(struct clause));
+		last_clause->next=cl;
+		last_clause=cl;
+	};
+	
+	last_clause->c=strdup(s);
 
+#if 0
 	struct clause* c;
 
 	if (clauses==NULL)
@@ -337,6 +348,7 @@ void add_line(const char *s)
 	}
 
 	c->c=strdup(s);
+#endif
 }
 
 void add_clause(const char* fmt, ...)
