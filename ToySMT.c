@@ -15,16 +15,16 @@
 // fwd decl:
 void print_expr(struct expr* e);
 
-struct expr* create_unary_expr(int t, struct expr* op)
+struct expr* create_unary_expr(enum OP t, struct expr* op)
 {
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
 	rt->type=EXPR_UNARY;
-	rt->expr_type=t;
+	rt->op=t;
 	rt->op1=op;
 	return rt;
 };
 
-struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2)
+struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2)
 {
 /*
 	printf ("%s()\n", __FUNCTION__);
@@ -37,7 +37,7 @@ struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2)
 */
 	struct expr* rt=GC_MALLOC(sizeof(struct expr));
 	rt->type=EXPR_BINARY;
-	rt->expr_type=t;
+	rt->op=t;
 	rt->op1=op1;
 	rt->op2=op2;
 	return rt;
@@ -47,9 +47,9 @@ struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2)
 int yylineno;
 
 // fwd decl;
-char* op_name(int op);
+char* op_name(enum OP op);
 
-struct expr* create_vararg_expr(int t, struct expr* args)
+struct expr* create_vararg_expr(enum OP t, struct expr* args)
 {
 	// this provides left associativity.
 
@@ -75,7 +75,7 @@ struct expr* create_const_expr(uint32_t c, int w)
 	return rt;
 };
 
-char* op_name(int op)
+char* op_name(enum OP op)
 {
 	switch (op)
 	{
@@ -113,14 +113,14 @@ void print_expr(struct expr* e)
 	};
 	if (e->type==EXPR_UNARY)
 	{
-		printf ("(%s ", op_name(e->expr_type));
+		printf ("(%s ", op_name(e->op));
 		print_expr(e->op1);
 		printf (")");
 		return;
 	};
 	if (e->type==EXPR_BINARY)
 	{
-		printf ("(%s ", op_name(e->expr_type));
+		printf ("(%s ", op_name(e->op));
 		print_expr(e->op1);
 		printf (" ");
 		print_expr(e->op2);
@@ -135,7 +135,7 @@ int next_var_no=1;
 struct variable
 {
 	int type; // TY_BOOL, TY_BITVEC
-	int internal; // 0/1, 1 for internal
+	bool internal; // 0/1, 1 for internal
 	char* id; // name
 	int var_no; // in SAT instance
 	int width; // in bits, 1 for bool
@@ -674,7 +674,7 @@ struct variable* generate(struct expr* e)
 
 	if (e->type==EXPR_UNARY)
 	{
-		switch (e->expr_type)
+		switch (e->op)
 		{
 			case OP_NOT:	return generate_NOT (generate (e->op1));
 			case OP_BVNOT:	return generate_BVNOT (generate (e->op1));
@@ -686,7 +686,7 @@ struct variable* generate(struct expr* e)
 	{
 		struct variable* v1=generate(e->op1);
 		struct variable* v2=generate(e->op2);
-		switch (e->expr_type)
+		switch (e->op)
 		{
 			case OP_EQ:	return generate_EQ (v1, v2);
 			case OP_OR:	return generate_OR (v1, v2);

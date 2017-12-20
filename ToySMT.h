@@ -5,35 +5,41 @@
 #define TY_BOOL 0
 #define TY_BITVEC 1
 
-#define OP_NOT 0
-#define OP_EQ 1
-#define OP_AND 2
-#define OP_OR 3
-#define OP_XOR 4
-#define OP_BVNOT 5
-#define OP_BVNEG 6
-#define OP_BVXOR 7
-#define OP_BVADD 8
-#define OP_BVSUB 9
-#define OP_BVUGE 10
-#define OP_BVUGT 11
-#define OP_BVULE 12
-#define OP_BVULT 13
+enum OP
+{
+	OP_NOT,
+	OP_EQ,
+	OP_AND,
+	OP_OR,
+	OP_XOR,
+	OP_BVNOT,
+	OP_BVNEG,
+	OP_BVXOR,
+	OP_BVADD,
+	OP_BVSUB,
+	OP_BVUGE,
+	OP_BVUGT,
+	OP_BVULE,
+	OP_BVULT
+};
 
-#define EXPR_ID 0
-#define EXPR_UNARY 1
-#define EXPR_BINARY 2
-#define EXPR_CONST 3
+enum EXPR_TYPE
+{
+	EXPR_ID,
+	EXPR_UNARY,
+	EXPR_BINARY,
+	EXPR_CONST
+};
 
 struct expr
 {
-	int type; // rename to node_type?
+	enum EXPR_TYPE type; // rename to node_type?
 
 	// in case of EXPR_ID
 	char* id;
 
 	// in case of EXPR_UNARY or EXPR_BINARY
-	int expr_type; // rename to op_type?
+	enum OP op;
 	struct expr* op1;
 	// in case of EXPR_BINARY
 	struct expr* op2;
@@ -47,9 +53,9 @@ struct expr
 	struct expr *next;
 };
 
-struct expr* create_unary_expr(int t, struct expr* op);
-struct expr* create_bin_expr(int t, struct expr* op1, struct expr* op2);
-struct expr* create_vararg_expr(int t, struct expr* args);
+struct expr* create_unary_expr(enum OP t, struct expr* op);
+struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2);
+struct expr* create_vararg_expr(enum OP t, struct expr* args);
 struct expr* create_const_expr(uint32_t c, int w);
 struct variable* create_variable(char *name, int type, int width, int internal);
 void create_assert (struct expr* e);
