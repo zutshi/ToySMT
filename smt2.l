@@ -37,6 +37,7 @@ void yyerror(char *);
 "bvxor"		{ return T_BVXOR; }
 "bvadd"		{ return T_BVADD; }
 "bvsub"		{ return T_BVSUB; }
+"bvmul"		{ return T_BVMUL; }
 "bvugt"		{ return T_BVUGT; }
 "bvuge"		{ return T_BVUGE; }
 "bvule"		{ return T_BVULE; }

@@ -12,6 +12,9 @@
 #include "ToySMT.h"
 #include "utils.h"
 
+// global switches
+bool dump_internal_variables;
+
 // fwd decl:
 void print_expr(struct expr* e);
 
@@ -306,10 +309,10 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 
 int next_internal_var=1;
 
-struct variable* create_internal_variable(int type, int width)
+struct variable* create_internal_variable(char* prefix, int type, int width)
 {
 	char tmp[128];
-	snprintf (tmp, sizeof(tmp), "internal!%d", next_internal_var);
+	snprintf (tmp, sizeof(tmp), "%s!%d", prefix, next_internal_var);
 	next_internal_var++;
 	return create_variable(tmp, type, width, 1);
 };
@@ -404,7 +407,7 @@ void add_comment(const char* s)
 struct variable* generate_const(uint32_t val, int width)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, val, width);
-	struct variable* rt=create_internal_variable(TY_BITVEC, width);
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, width);
 	add_comment("generate_const()");
 	for (int i=0; i<width; i++)
 	{
@@ -433,7 +436,7 @@ struct variable* generate_NOT(struct variable* v)
 	if (v->type!=TY_BOOL)
 		die ("Error: sort mismatch: 'not' takes bool expression, which is not in %s\n", v->id);
 
-	struct variable* rt=create_internal_variable(TY_BOOL, 1);
+	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
 	add_comment ("generate_NOT");
 	add_Tseitin_NOT (rt->var_no, v->var_no);
 	return rt;
@@ -444,7 +447,7 @@ struct variable* generate_BVNOT(struct variable* v)
 	if (v->type!=TY_BITVEC)
 		die ("Error: sort mismatch: 'bvnot' takes bitvec expression, which is not in %s\n", v->id);
 
-	struct variable* rt=create_internal_variable(TY_BITVEC, v->width);
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v->width);
 	add_comment ("generate_BVNOT");
 	for (int i=0; i<v->width; i++)
 		add_Tseitin_NOT (rt->var_no+i, v->var_no+i);
@@ -492,11 +495,45 @@ void add_FA(int a, int b, int cin, int s, int cout)
         add_clause3(cin, -cout, -s);
 };
 
+void generate_adder(struct variable* a, struct variable* b, struct variable *carry_in, // inputs
+	struct variable** sum, struct variable** carry_out) // outputs
+{
+	assert(a->type==TY_BITVEC);
+	assert(b->type==TY_BITVEC);
+	assert(a->width==b->width);
+
+	assert(carry_in->type==TY_BOOL);
+
+	*sum=create_internal_variable("adder_sum", TY_BITVEC, a->width);
+	add_comment (__FUNCTION__);
+
+	int carry=carry_in->var_no;
+
+	// the first full-adder could be half-adder, but we make things simple here
+	for (int i=0; i<a->width; i++)
+	{
+		*carry_out=create_internal_variable("adder_carry", TY_BOOL, 1);
+		add_FA(a->var_no+i, b->var_no+i, carry, (*sum)->var_no+i, (*carry_out)->var_no);
+		// newly created carry_out is a carry_in for the next full-adder:
+		carry=(*carry_out)->var_no;
+	};
+};
+
 struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
 {
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
+
+	// TODO make func?
+	struct variable* always_false=create_internal_variable("internal", TY_BOOL, 1);
+	add_clause1(-always_false->var_no);
+
+	struct variable *sum;
+	struct variable *carry_out;
+	generate_adder(v1, v2, always_false, &sum, &carry_out);
+	return sum;
+/*
 	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
 	add_comment ("generate_BVADD");
 
@@ -516,6 +553,7 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
 	};
 
 	return rt;
+*/
 };
 
 // TODO use Tseitin + gates?
@@ -544,11 +582,11 @@ struct variable* generate_BVSUB(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v1->width);
 	add_comment ("generate_BVSUB");
 
 	// TODO make func?
-	struct variable* always_false=create_internal_variable(TY_BOOL, 1);
+	struct variable* always_false=create_internal_variable("internal", TY_BOOL, 1);
 	add_clause1(-always_false->var_no);
 
 	int borrow=always_false->var_no;
@@ -556,7 +594,7 @@ struct variable* generate_BVSUB(struct variable* v1, struct variable* v2)
 	// the first full-subtractor could be half-subtractor, but we make things simple here
 	for (int i=0; i<v1->width; i++)
 	{
-		struct variable* borrow_out=create_internal_variable(TY_BOOL, 1);
+		struct variable* borrow_out=create_internal_variable("internal", TY_BOOL, 1);
 		add_FS(v1->var_no+i, v2->var_no+i, borrow, rt->var_no+i, borrow_out->var_no);
 		// newly created borrow_out is a borrow_in for the next full-subtractor:
 		borrow=borrow_out->var_no;
@@ -572,11 +610,11 @@ struct variable* generate_BVSUB_borrow(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v1->width);
 	add_comment ("generate_BVSUB_borrow");
 
 	// TODO make func?
-	struct variable* always_false=create_internal_variable(TY_BOOL, 1);
+	struct variable* always_false=create_internal_variable("internal", TY_BOOL, 1);
 	add_clause1(-always_false->var_no);
 
 	int borrow=always_false->var_no;
@@ -585,7 +623,7 @@ struct variable* generate_BVSUB_borrow(struct variable* v1, struct variable* v2)
 	// the first full-subtractor could be half-subtractor, but we make things simple here
 	for (int i=0; i<v1->width; i++)
 	{
-		borrow_out=create_internal_variable(TY_BOOL, 1);
+		borrow_out=create_internal_variable("internal", TY_BOOL, 1);
 		add_FS(v1->var_no+i, v2->var_no+i, borrow, rt->var_no+i, borrow_out->var_no);
 		// newly created borrow_out is a borrow_in for the next full-subtractor:
 		borrow=borrow_out->var_no;
@@ -654,7 +692,7 @@ struct variable* generate_XOR(struct variable* v1, struct variable* v2)
 {
 	assert(v1->type==TY_BOOL);
 	assert(v2->type==TY_BOOL);
-	struct variable* rt=create_internal_variable(TY_BOOL, 1);
+	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
 	add_comment ("generate_XOR");
 	add_Tseitin_XOR (v1->var_no, v2->var_no, rt->var_no);
 	return rt;
@@ -665,7 +703,7 @@ struct variable* generate_BVXOR(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v1->width);
 	add_comment ("generate_BVXOR");
 	for (int i=0; i<v1->width; i++)
 		add_Tseitin_XOR (v1->var_no+i, v2->var_no+i, rt->var_no+i);
@@ -677,7 +715,7 @@ struct variable* generate_BVXOR(struct variable* v1, struct variable* v2)
 struct variable* generate_OR_list(int var, int width)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, var, width);
-	struct variable* rt=create_internal_variable(TY_BOOL, 1);
+	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
 	add_comment ("generate_OR_list");
 	char* tmp=create_string_of_numbers_in_range(var, width);
 	add_clause("%s -%d", tmp, rt->var_no);
@@ -719,19 +757,113 @@ struct variable* generate_NEQ(struct variable* v1, struct variable* v2)
 	return generate_NOT(generate_EQ(v1,v2));
 };
 
+void add_Tseitin_AND(int a, int b, int out)
+{
+	add_clause3 (-a, -b, out);
+	add_clause2 (a, -out);
+	add_clause2 (b, -out);
+};
+
 struct variable* generate_AND(struct variable* v1, struct variable* v2)
 {
-	struct variable* rt=create_internal_variable(TY_BOOL, 1);
+	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
 	add_comment ("generate_AND");
+/*
 	add_clause3 (-v1->var_no, -v2->var_no, rt->var_no);
 	add_clause2 (v1->var_no, -rt->var_no);
 	add_clause2 (v2->var_no, -rt->var_no);
+*/
+	add_Tseitin_AND(v1->var_no, v2->var_no, rt->var_no);
 	return rt;
+};
+/*    
+# bit is 0 or 1.
+    # i.e., if it's 0, output is 0 (all bits)
+    # if it's 1, output=input
+    def mult_by_bit(self, X, bit):
+        return [self.AND(i, bit) for i in X]
+*/
+
+void generate_mult_by_bit(int width, int var_no_in, int var_no_out, int var_no_bit)
+{
+	for (int i=0; i<width; i++)
+		add_Tseitin_AND(var_no_in+i, var_no_bit, var_no_out+i);
+};
+
+/*
+    # bit order: [MSB..LSB]
+    # build multiplier using adders and mult_by_bit blocks:
+    def multiplier(self, X, Y):
+        assert len(X)==len(Y)
+        out=[]
+        #initial:
+        prev=[self.const_false]*len(X)
+        # first adder can be skipped, but I left thing "as is" to make it simpler
+        for Y_bit in frolic.rvr(Y):
+            s, carry = self.adder(self.mult_by_bit(X, Y_bit), prev)
+            out.append(s[-1])
+            prev=[carry] + s[:-1]
+    
+        return prev + frolic.rvr(out)
+*/
+
+// v1=v2 always!
+void add_Tseitin_EQ(int v1, int v2)
+{
+	add_clause2 (-v1, v2);
+	add_clause2 (v1, -v2);
+}
+
+struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
+{
+#if 0
+	assert (X->type==TY_BITVEC);
+	assert (Y->type==TY_BITVEC);
+	assert (X->width==Y->width);
+	int w=X->width;
+
+	// TODO make func?
+	struct variable* always_false=create_internal_variable("always_false", TY_BOOL, 1);
+	add_clause1(-always_false->var_no);
+
+	struct variable* product=create_internal_variable("product", TY_BITVEC, w);
+	struct variable* prev=create_internal_variable("prev", TY_BITVEC, w);
+	// TODO func:
+	for (int i=0; i<w; i++)
+		add_Tseitin_EQ(prev->var_no+i, always_false->var_no);
+
+/*
+ 10 = 1
+10  = 2
+110
+*/
+	for (int i=0; i<w; i++)
+	{
+		struct variable* partial_product=create_internal_variable("partial_product", TY_BITVEC, w);
+		printf ("partial_product=%s\n", partial_product->id);
+		generate_mult_by_bit(w, X->var_no, partial_product->var_no, Y->var_no+i);
+		struct variable *sum;
+		struct variable *carry;
+		printf ("going to sum %s and %s\n", partial_product->id, prev->id);
+		generate_adder(partial_product, prev, always_false /* carry_in */, &sum, &carry);
+		printf ("sum=%s\n", sum->id);
+		// LSB of sum:
+		int LSB_var_no=sum->var_no+i;
+		add_Tseitin_EQ(LSB_var_no, product->var_no+i);
+		struct variable* new_prev=create_internal_variable("new_prev", TY_BITVEC, w);
+		//add_Tseitin_EQ(new_prev->var_no+w-1, carry->var_no);
+		for (int j=0; j<w-1; j++)
+			add_Tseitin_EQ(new_prev->var_no+j, sum->var_no+j+1);
+		printf ("new_prev=%s\n", new_prev->id);
+		prev=new_prev;
+	};
+	return product;
+#endif
 };
 
 struct variable* generate_OR(struct variable* v1, struct variable* v2)
 {
-	struct variable* rt=create_internal_variable(TY_BOOL, 1);
+	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
 	add_comment ("generate_OR");
 	add_clause3 (v1->var_no, v2->var_no, -rt->var_no);
 	add_clause2 (-v1->var_no, rt->var_no);
@@ -783,6 +915,7 @@ struct variable* generate(struct expr* e)
 			case OP_BVXOR:	return generate_BVXOR (v1, v2);
 			case OP_BVADD:	return generate_BVADD (v1, v2);
 			case OP_BVSUB:	return generate_BVSUB (v1, v2);
+			case OP_BVMUL:	return generate_BVMUL (v1, v2);
 			case OP_BVUGE:	return generate_BVUGE (v1, v2);
 			case OP_BVULE:	return generate_BVULE (v1, v2);
 			case OP_BVUGT:	return generate_BVUGT (v1, v2);
@@ -876,7 +1009,7 @@ void check_sat()
 void get_model()
 {
 	if (sat)
-		dump_all_variables(false);
+		dump_all_variables(dump_internal_variables);
 	else
 		printf ("(error \"model is not available\")\n");
 }

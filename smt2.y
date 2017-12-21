@@ -1,4 +1,5 @@
 %{
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -24,7 +25,7 @@ void yyerror(const char *);
 %token T_SMT_LIB_VERSION
 %token T_NUMBER T_ID T_TEXT T_CONST T_BV_DEC_CONST
 %token T_BOOL T_BITVEC
-%token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB
+%token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL
 %token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT
 %token T_WHITESPACE
 
@@ -123,6 +124,10 @@ expr:	T_ID
 	{
 		$$=create_vararg_expr(OP_BVADD, $3);
 	}
+        | T_L_PAREN T_BVMUL expr_list T_R_PAREN
+	{
+		$$=create_vararg_expr(OP_BVMUL, $3);
+	}
         | T_L_PAREN T_BVSUB expr_list T_R_PAREN
 	{
 		$$=create_vararg_expr(OP_BVSUB, $3);
@@ -161,7 +166,15 @@ void yyerror(const char *s)
 
 int main(int argc, char *argv[])
 {
-	FILE* input = fopen(argv[1], "r");
+	int i=1;
+	for (; argv[i][0]=='-'; i++)
+	{
+		// handle switches
+		if (strcmp(argv[i], "--dump-internal-variables")==0)
+			dump_internal_variables=true;
+	};
+
+	FILE* input = fopen(argv[i], "r");
 	if (input==NULL)
 	{
 		printf ("Cannot open input file\n");

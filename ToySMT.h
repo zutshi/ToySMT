@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define TY_BOOL 0
 #define TY_BITVEC 1
@@ -17,6 +18,7 @@ enum OP
 	OP_BVNEG,
 	OP_BVXOR,
 	OP_BVADD,
+	OP_BVMUL,
 	OP_BVSUB,
 	OP_BVUGE,
 	OP_BVUGT,
@@ -63,4 +65,7 @@ struct variable* create_variable(char *name, int type, int width, int internal);
 void create_assert (struct expr* e);
 void check_sat();
 void get_model();
+
+// global switches
+bool dump_internal_variables;
 
