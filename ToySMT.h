@@ -31,7 +31,8 @@ enum EXPR_TYPE
 	EXPR_ID,
 	EXPR_UNARY,
 	EXPR_BINARY,
-	EXPR_CONST
+	EXPR_CONST,
+	EXPR_ZERO_EXTEND // op1 and const_val are used!
 };
 
 struct expr
@@ -61,6 +62,8 @@ struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2);
 struct expr* create_vararg_expr(enum OP t, struct expr* args);
 struct expr* create_distinct_expr(struct expr* args);
 struct expr* create_const_expr(uint32_t c, int w);
+struct expr* create_zero_extend_expr(int bits, struct expr* e);
+
 struct variable* create_variable(char *name, int type, int width, int internal);
 void create_assert (struct expr* e);
 void check_sat();

@@ -132,6 +132,16 @@ struct expr* create_const_expr(uint32_t c, int w)
 	return rt;
 };
 
+struct expr* create_zero_extend_expr(int bits, struct expr* e)
+{
+	struct expr* rt=GC_MALLOC(sizeof(struct expr));
+	memset (rt, 0, sizeof(struct expr));
+	rt->type=EXPR_ZERO_EXTEND;
+	rt->const_val=bits;
+	rt->op1=e;
+	return rt;
+};
+
 char* op_name(enum OP op)
 {
 	switch (op)
@@ -167,6 +177,13 @@ void print_expr(struct expr* e)
 	if (e->type==EXPR_CONST)
 	{
 		printf ("%d (%d bits)", e->const_val, e->const_width);
+		return;
+	};
+	if (e->type==EXPR_ZERO_EXTEND)
+	{
+		printf ("(ZEXT by %d bits: ", e->const_val);
+		print_expr(e->op1);
+		printf (")");
 		return;
 	};
 	if (e->type==EXPR_UNARY)
@@ -784,11 +801,54 @@ struct variable* generate_AND(struct variable* v1, struct variable* v2)
         return [self.AND(i, bit) for i in X]
 */
 
-void generate_mult_by_bit(int width, int var_no_in, int var_no_out, int var_no_bit)
+void add_Tseitin_mult_by_bit(int width, int var_no_in, int var_no_out, int var_no_bit)
 {
 	for (int i=0; i<width; i++)
 		add_Tseitin_AND(var_no_in+i, var_no_bit, var_no_out+i);
 };
+
+struct variable* generate_mult_by_bit(struct variable *in, struct variable* bit)
+{
+	assert (in->type==TY_BITVEC);
+	assert (bit->type==TY_BOOL);
+
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, in->width);
+
+	add_Tseitin_mult_by_bit(in->width, in->var_no, rt->var_no, bit->var_no);
+	return rt;
+};
+
+// v1=v2 always!
+void add_Tseitin_EQ(int v1, int v2)
+{
+	add_clause2 (-v1, v2);
+	add_clause2 (v1, -v2);
+}
+
+void add_Tseitin_EQ_bitvecs(int width, int v1, int v2)
+{
+	for (int i=0; i<width; i++)
+	{
+		add_clause2 (-(v1+i), v2+i);
+		add_clause2 (v1+i, -(v2+i));
+	};
+}
+
+struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add)
+{
+	int final_width=in->width+zeroes_to_add;
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, final_width);
+
+	// TODO: SOMETHING
+	struct variable* always_false=create_internal_variable("always_false", TY_BOOL, 1);
+	add_clause1(-always_false->var_no);
+
+	add_Tseitin_EQ_bitvecs(in->width, in->var_no, rt->var_no);
+	for (int i=0; i<zeroes_to_add; i++)
+		add_Tseitin_EQ(rt->var_no+in->width, always_false->var_no);
+	return rt;
+};
+
 
 /*
     # bit order: [MSB..LSB]
@@ -807,15 +867,14 @@ void generate_mult_by_bit(int width, int var_no_in, int var_no_out, int var_no_b
         return prev + frolic.rvr(out)
 */
 
-// v1=v2 always!
-void add_Tseitin_EQ(int v1, int v2)
-{
-	add_clause2 (-v1, v2);
-	add_clause2 (v1, -v2);
-}
+
 
 struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
 {
+	assert (X->type==TY_BITVEC);
+	assert (Y->type==TY_BITVEC);
+	assert (X->width==Y->width);
+	int w=X->width;
 #if 0
 	assert (X->type==TY_BITVEC);
 	assert (Y->type==TY_BITVEC);
@@ -889,6 +948,11 @@ struct variable* generate(struct expr* e)
 	{
 		//printf ("generate() const\n");
 		return generate_const(e->const_val, e->const_width);
+	};
+	
+	if (e->type==EXPR_ZERO_EXTEND)
+	{
+		return generate_zero_extend(generate(e->op1), e->const_val);
 	};
 
 	if (e->type==EXPR_UNARY)
