@@ -3,10 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-// Boehm garbage collector:
-#include <gc.h>
 
 #include "ToySMT.h"
+#include "utils.h"
 
 int yylex(void);
 void yyerror(const char *);
@@ -28,7 +27,7 @@ void yyerror(const char *);
 %token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL
 %token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT
 %token T_WHITESPACE
-%token T_ZERO_EXTEND
+%token T_ZERO_EXTEND T_EXTRACT
 
 %type <text> T_ID
 %type <i> T_NUMBER
@@ -87,7 +86,7 @@ expr_list:	expr
 
 expr:	T_ID
 	{
-		$$=GC_MALLOC_ATOMIC(sizeof(struct expr));
+		$$=xmalloc(sizeof(struct expr));
 		$$->type=EXPR_ID;
 		$$->id=$1;
 		$$->next=NULL;
@@ -100,6 +99,10 @@ expr:	T_ID
         | T_L_PAREN T_L_PAREN T_UNDERSCORE T_ZERO_EXTEND T_NUMBER T_R_PAREN expr T_R_PAREN
 	{
 		$$=create_zero_extend_expr($5, $7);
+	}
+        | T_L_PAREN T_L_PAREN T_UNDERSCORE T_EXTRACT T_NUMBER T_NUMBER T_R_PAREN expr T_R_PAREN
+	{
+		$$=create_extract_expr($5, $6, $8);
 	}
         | T_L_PAREN unary_func expr T_R_PAREN
 	{
@@ -185,6 +188,8 @@ int main(int argc, char *argv[])
 		printf ("Cannot open input file\n");
 		return 0;
 	} 
+
+	init();
 
 	yyin = input;
 

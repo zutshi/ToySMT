@@ -26,4 +26,5 @@ fi
 
 ./ToySMT tests/distinct2.smt > tmp && diff tmp tests/distinct2.correct
 ./ToySMT tests/zero_extend_test.smt > tmp && diff tmp tests/zero_extend_test.correct
+./ToySMT tests/extract_test.smt > tmp && diff tmp tests/extract_test.correct
 

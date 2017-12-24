@@ -6,11 +6,12 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
-// Boehm garbage collector:
-#include <gc.h>
 
 #include "ToySMT.h"
 #include "utils.h"
+
+#define VAR_ALWAYS_FALSE 1
+#define VAR_ALWAYS_TRUE 2
 
 // global switches
 bool dump_internal_variables;
@@ -20,7 +21,7 @@ void print_expr(struct expr* e);
 
 struct expr* create_unary_expr(enum OP t, struct expr* op)
 {
-	struct expr* rt=GC_MALLOC(sizeof(struct expr));
+	struct expr* rt=xmalloc(sizeof(struct expr));
 	memset (rt, 0, sizeof(struct expr));
 	rt->type=EXPR_UNARY;
 	rt->op=t;
@@ -39,7 +40,7 @@ struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2)
 	print_expr(op2);
 	printf ("\n");
 */
-	struct expr* rt=GC_MALLOC(sizeof(struct expr));
+	struct expr* rt=xmalloc(sizeof(struct expr));
 	memset (rt, 0, sizeof(struct expr));
 	rt->type=EXPR_BINARY;
 	rt->op=t;
@@ -124,8 +125,7 @@ struct expr* create_distinct_expr(struct expr* args)
 struct expr* create_const_expr(uint32_t c, int w)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, c, w);
-	struct expr* rt=GC_MALLOC(sizeof(struct expr));
-	memset (rt, 0, sizeof(struct expr));
+	struct expr* rt=xmalloc(sizeof(struct expr));
 	rt->type=EXPR_CONST;
 	rt->const_val=c;
 	rt->const_width=w;
@@ -134,10 +134,25 @@ struct expr* create_const_expr(uint32_t c, int w)
 
 struct expr* create_zero_extend_expr(int bits, struct expr* e)
 {
-	struct expr* rt=GC_MALLOC(sizeof(struct expr));
-	memset (rt, 0, sizeof(struct expr));
+	struct expr* rt=xmalloc(sizeof(struct expr));
 	rt->type=EXPR_ZERO_EXTEND;
 	rt->const_val=bits;
+	rt->op1=e;
+	return rt;
+};
+
+// get [start, end) bits
+struct expr* create_extract_expr(unsigned end, unsigned start, struct expr* e)
+{
+	if (start>end)
+		die ("line %d: start must be >=end, but you have start=%d, end=%d\n", yylineno, start, end);
+
+	unsigned w=end-start+1;
+
+	struct expr* rt=xmalloc(sizeof(struct expr));
+	rt->type=EXPR_EXTRACT;
+	rt->const_val=start;
+	rt->const_width=w;
 	rt->op1=e;
 	return rt;
 };
@@ -186,6 +201,13 @@ void print_expr(struct expr* e)
 		printf (")");
 		return;
 	};
+	if (e->type==EXPR_EXTRACT)
+	{
+		printf ("(extract, start=%d width=%d bits: ", e->const_val, e->const_width);
+		print_expr(e->op1);
+		printf (")");
+		return;
+	};
 	if (e->type==EXPR_UNARY)
 	{
 		printf ("(%s ", op_name(e->op));
@@ -205,7 +227,8 @@ void print_expr(struct expr* e)
 	assert (0);
 };
 
-int next_var_no=1;
+// 3 instead of 1, becasue two variables (false/true) are allocated at start
+int next_var_no=3;
 
 struct variable
 {
@@ -242,6 +265,8 @@ void dump_all_variables(bool dump_internal)
 		{
   			printf ("\t(define-fun %s () (_ BitVec %d) (_ bv%u %d)) ; 0x%x\n",
 				v->id, v->width, v->val, v->width, v->val);
+  			//printf ("\t(define-fun %s () (_ BitVec %d) (_ bv%u %d)) ; 0x%x var_no=%d\n",
+			//	v->id, v->width, v->val, v->width, v->val, v->var_no);
 		}
 		else
 		{
@@ -293,13 +318,13 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 	struct variable* v;
 	if (vars==NULL)
 	{
-		v=vars=GC_MALLOC(sizeof(struct variable));
+		v=vars=xmalloc(sizeof(struct variable));
 		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	}
 	else
 	{
 		for (v=vars; v->next; v=v->next);
-		v->next=GC_MALLOC(sizeof(struct variable));
+		v->next=xmalloc(sizeof(struct variable));
 		v=v->next;
 		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	};
@@ -319,7 +344,7 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 	}
 	else
 		assert(0);
-	//printf ("%s() line %d variables=%p\n", __FUNCTION__, __LINE__, vars);
+	//printf ("%s() %s var_no=%d\n", __FUNCTION__, name, v->var_no);
 	v->internal=internal;
 	return v;
 }
@@ -348,10 +373,10 @@ struct clause *last_clause=NULL;
 void add_line(const char *s)
 {
 	if (clauses==NULL)
-		last_clause=clauses=GC_MALLOC(sizeof(struct clause));
+		last_clause=clauses=xmalloc(sizeof(struct clause));
 	else
 	{
-		struct clause *cl=GC_MALLOC(sizeof(struct clause));
+		struct clause *cl=xmalloc(sizeof(struct clause));
 		last_clause->next=cl;
 		last_clause=cl;
 	};
@@ -415,7 +440,7 @@ void add_comment(const char* s)
 	//printf ("%s() %s\n", __FUNCTION__, s);
 
 	size_t len=strlen(s)+3;
-	char *tmp=GC_MALLOC_ATOMIC(len);
+	char *tmp=xmalloc(len);
 	snprintf (tmp, len, "c %s", s);
 
 	add_line(tmp);
@@ -602,11 +627,7 @@ struct variable* generate_BVSUB(struct variable* v1, struct variable* v2)
 	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v1->width);
 	add_comment ("generate_BVSUB");
 
-	// TODO make func?
-	struct variable* always_false=create_internal_variable("internal", TY_BOOL, 1);
-	add_clause1(-always_false->var_no);
-
-	int borrow=always_false->var_no;
+	int borrow=VAR_ALWAYS_FALSE;
 
 	// the first full-subtractor could be half-subtractor, but we make things simple here
 	for (int i=0; i<v1->width; i++)
@@ -630,11 +651,7 @@ struct variable* generate_BVSUB_borrow(struct variable* v1, struct variable* v2)
 	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v1->width);
 	add_comment ("generate_BVSUB_borrow");
 
-	// TODO make func?
-	struct variable* always_false=create_internal_variable("internal", TY_BOOL, 1);
-	add_clause1(-always_false->var_no);
-
-	int borrow=always_false->var_no;
+	int borrow=VAR_ALWAYS_FALSE;
 	struct variable* borrow_out;
 
 	// the first full-subtractor could be half-subtractor, but we make things simple here
@@ -744,9 +761,9 @@ struct variable* generate_OR_list(int var, int width)
 struct variable* generate_EQ(struct variable* v1, struct variable* v2)
 {
 	//printf ("%s() v1=%d v2=%d\n", __FUNCTION__, v1->var_no, v2->var_no);
-	if (v1->width==1)
+	if (v1->type==TY_BOOL)
 	{
-		assert(v2->width==1);
+		assert(v2->type==TY_BOOL);
 		add_comment ("generate_EQ");
 		struct variable *v=generate_NOT(generate_XOR(v1, v2));
 		//printf ("%s() returns %s (Bool)\n", __FUNCTION__, v->id);
@@ -806,7 +823,7 @@ void add_Tseitin_mult_by_bit(int width, int var_no_in, int var_no_out, int var_n
 	for (int i=0; i<width; i++)
 		add_Tseitin_AND(var_no_in+i, var_no_bit, var_no_out+i);
 };
-
+/*
 struct variable* generate_mult_by_bit(struct variable *in, struct variable* bit)
 {
 	assert (in->type==TY_BITVEC);
@@ -817,7 +834,7 @@ struct variable* generate_mult_by_bit(struct variable *in, struct variable* bit)
 	add_Tseitin_mult_by_bit(in->width, in->var_no, rt->var_no, bit->var_no);
 	return rt;
 };
-
+*/
 // v1=v2 always!
 void add_Tseitin_EQ(int v1, int v2)
 {
@@ -828,27 +845,21 @@ void add_Tseitin_EQ(int v1, int v2)
 void add_Tseitin_EQ_bitvecs(int width, int v1, int v2)
 {
 	for (int i=0; i<width; i++)
-	{
-		add_clause2 (-(v1+i), v2+i);
-		add_clause2 (v1+i, -(v2+i));
-	};
+		add_Tseitin_EQ(v1+i, v2+i);
 }
 
 struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add)
 {
 	int final_width=in->width+zeroes_to_add;
-	struct variable* rt=create_internal_variable("internal", TY_BITVEC, final_width);
-
-	// TODO: SOMETHING
-	struct variable* always_false=create_internal_variable("always_false", TY_BOOL, 1);
-	add_clause1(-always_false->var_no);
+	struct variable* rt=create_internal_variable("zero_extended", TY_BITVEC, final_width);
 
 	add_Tseitin_EQ_bitvecs(in->width, in->var_no, rt->var_no);
+
 	for (int i=0; i<zeroes_to_add; i++)
-		add_Tseitin_EQ(rt->var_no+in->width, always_false->var_no);
+		add_Tseitin_EQ(rt->var_no+in->width, VAR_ALWAYS_FALSE);
+
 	return rt;
 };
-
 
 /*
     # bit order: [MSB..LSB]
@@ -867,7 +878,29 @@ struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add)
         return prev + frolic.rvr(out)
 */
 
+struct variable* generate_shift_left(struct variable* X, unsigned int cnt)
+{
+	int w=X->width;
 
+	struct variable* rt=create_internal_variable("shifted", TY_BITVEC, w);
+
+	for (int i=0; i<cnt; i++)
+		add_Tseitin_EQ(rt->var_no+i, VAR_ALWAYS_FALSE);
+
+	for (int i=0; i<w-cnt; i++)
+		add_Tseitin_EQ(rt->var_no+cnt+i, X->var_no+i);
+
+	return rt;
+};
+
+struct variable* generate_extract(struct variable *v, unsigned begin, unsigned width)
+{
+	struct variable* rt=create_internal_variable("extracted", TY_BITVEC, width);
+	for (int i=0; i<width; i++)
+		add_Tseitin_EQ(rt->var_no+i, v->var_no+begin+i);
+
+	return rt;
+};
 
 struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
 {
@@ -875,6 +908,32 @@ struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
 	assert (Y->type==TY_BITVEC);
 	assert (X->width==Y->width);
 	int w=X->width;
+	int final_w=w*2;
+
+	//printf ("w, final_w=%d, %d\n", w, final_w);
+	struct variable* X_extended=generate_zero_extend(X, w);
+
+	struct variable* partial_products1[w]; // warning: GCC (?) extension
+	struct variable* partial_products2[w]; // warning: GCC (?) extension
+
+	for (int i=0; i<w; i++)
+	{
+		partial_products1[i]=create_internal_variable("partial_product1", TY_BITVEC, final_w);
+		add_Tseitin_mult_by_bit(final_w, X_extended->var_no+i, partial_products1[i]->var_no+i, Y->var_no+i);
+		partial_products2[i]=generate_shift_left(partial_products1[i], i);
+		//if (i!=0)
+		//	partial_products2[i-1]->next=partial_products2[i];
+	};
+
+	struct variable *product=partial_products2[0];
+
+	for (int i=1; i<w; i++)
+		product=generate_BVADD(product, partial_products2[i]);
+
+	//printf ("%d\n", product->width);
+	//return X_extended;
+	//return create_internal_variable("internal", TY_BITVEC, w);
+	return generate_extract(product, 0, w);
 #if 0
 	assert (X->type==TY_BITVEC);
 	assert (Y->type==TY_BITVEC);
@@ -955,6 +1014,11 @@ struct variable* generate(struct expr* e)
 		return generate_zero_extend(generate(e->op1), e->const_val);
 	};
 
+	if (e->type==EXPR_EXTRACT)
+	{
+		return generate_extract(generate(e->op1), e->const_val, e->const_width);
+	};
+
 	if (e->type==EXPR_UNARY)
 	{
 		switch (e->op)
@@ -1026,7 +1090,7 @@ void check_sat()
 
 	// TODO parse_SAT_response()
 	size_t buflen=next_var_no*10;
-	char *buf=GC_MALLOC_ATOMIC(buflen);
+	char *buf=xmalloc(buflen);
 	assert(buf);
 
 	FILE* f=fopen ("result.txt", "rt");
@@ -1042,16 +1106,32 @@ void check_sat()
 			struct variable* sv;
 			// works for both bools and bitvecs. set bit.
 			int v=array[i];
+
+			// fixed to false/true, absent in our tables:
+			if (abs(v)==1 || abs(v)==2)
+				continue;
 			if (v<0)
 			{
 				sv=find_variable_by_no(-v);
-				assert(sv);
+				if (sv==NULL)
+				{
+					printf ("Can't find var %d in our tables\n", -v);
+					dump_all_variables(true);
+					exit(0);
+				};
+				//assert(sv);
 				sv->val &= ~(1<<((-v) - sv->var_no));
 			}
 			else
 			{
 				sv=find_variable_by_no(v);
-				assert(sv);
+				if (sv==NULL)
+				{
+					printf ("Can't find var %d in our tables\n", v);
+					dump_all_variables(true);
+					exit(0);
+				};
+				//assert(sv);
 				sv->val |= (1<<(v - sv->var_no));
 			}
 		}
@@ -1077,4 +1157,10 @@ void get_model()
 	else
 		printf ("(error \"model is not available\")\n");
 }
+
+void init()
+{
+	add_clause1(-VAR_ALWAYS_FALSE);
+	add_clause1(VAR_ALWAYS_TRUE);
+};
 

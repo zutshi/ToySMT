@@ -16,12 +16,33 @@ void die(const char* fmt, ...)
 	exit(0);
 };
 
+void* xmalloc(size_t size)
+{
+	void* rt=malloc(size);
+	if (rt==NULL)
+		die ("Can't allocate %d bytes\n", size);
+	memset(rt, 0, size);
+	return rt;
+};
+
+void xfree (void* p)
+{
+	free(p);
+};
+
+char* xstrdup(const char *s)
+{
+	char* rt=xmalloc(strlen(s)+1);
+	strcpy (rt, s);
+	return rt;
+};
+
 // "1 2 3 4 5 -6" -> array of (signed) ints
 // destroys input string
 // allocates space for array
 int* list_of_numbers_to_array (char *s, size_t array_size, size_t *parsed)
 {
-	int *rt=GC_MALLOC(array_size*sizeof(int));
+	int *rt=xmalloc(array_size*sizeof(int));
 	assert(rt);
 	int i=0;
 	char *t=strtok(s, " \r\n");
@@ -39,7 +60,7 @@ int* list_of_numbers_to_array (char *s, size_t array_size, size_t *parsed)
 char* create_string_of_numbers_in_range(int begin, size_t size)
 {
 	size_t buflen=size*10;
-	char* buf=GC_MALLOC(buflen);
+	char* buf=xmalloc(buflen);
 	buf[0]=0;
 	for (int i=0; i<size; i++)
 	{
