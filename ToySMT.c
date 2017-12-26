@@ -49,6 +49,26 @@ struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2)
 	return rt;
 };
 
+struct expr* create_ternary_expr(enum OP t, struct expr* op1, struct expr* op2, struct expr* op3)
+{
+/*
+	printf ("%s()\n", __FUNCTION__);
+	printf ("op1=");
+	print_expr(op1);
+	printf ("\n");
+	printf ("op2=");
+	print_expr(op2);
+	printf ("\n");
+*/
+	struct expr* rt=xmalloc(sizeof(struct expr));
+	rt->type=EXPR_TERNARY;
+	rt->op=t;
+	rt->op1=op1;
+	rt->op2=op2;
+	rt->op3=op3;
+	return rt;
+};
+
 // from smt2.y:
 int yylineno;
 
@@ -65,6 +85,7 @@ struct expr* create_vararg_expr(enum OP t, struct expr* args)
 		printf ("\n");
 	};
 */
+
 	// this provides left associativity.
 
 	// be sure at least two expr in chain:
@@ -177,6 +198,7 @@ char* op_name(enum OP op)
 		case OP_BVULE:	return "bvule";
 		case OP_BVUGT:	return "bvugt";
 		case OP_BVULT:	return "bvult";
+		case OP_ITE:	return "ite";
 		default:
 			assert(0);
 	};
@@ -221,6 +243,17 @@ void print_expr(struct expr* e)
 		print_expr(e->op1);
 		printf (" ");
 		print_expr(e->op2);
+		printf (")");
+		return;
+	};
+	if (e->type==EXPR_TERNARY)
+	{
+		printf ("(%s ", op_name(e->op));
+		print_expr(e->op1);
+		printf (" ");
+		print_expr(e->op2);
+		printf (" ");
+		print_expr(e->op3);
 		printf (")");
 		return;
 	};
@@ -329,7 +362,7 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	};
 	v->type=type;
-	v->id=strdup(name); // TODO replace strdup with something
+	v->id=xstrdup(name); // TODO replace strdup with something
 	if (type==TY_BOOL)
 	{
 		v->var_no=next_var_no;
@@ -381,7 +414,7 @@ void add_line(const char *s)
 		last_clause=cl;
 	};
 	
-	last_clause->c=strdup(s);
+	last_clause->c=xstrdup(s);
 
 #if 0
 	struct clause* c;
@@ -989,6 +1022,30 @@ struct variable* generate_OR(struct variable* v1, struct variable* v2)
 	return rt;
 };
 
+void add_Tseitin_ITE (int s, int t, int f, int x)
+{
+	add_comment (__FUNCTION__);
+        // as found by my util 
+        add_clause3(-s, -t, x);
+        add_clause3(-s, t, -x);
+        add_clause3(s, -f, x);
+	add_clause3(s, f, -x);
+};
+		
+struct variable* generate_ITE(struct variable* sel, struct variable* t, struct variable* f)
+{
+	assert (sel->type==TY_BOOL);
+	assert (t->type==TY_BITVEC);
+	assert (f->type==TY_BITVEC);
+	assert (t->width==f->width);
+
+	struct variable* rt=create_internal_variable("internal", TY_BITVEC, t->width);
+
+	for (int i=0; i<t->width; i++)
+		add_Tseitin_ITE(sel->var_no, t->var_no+i, f->var_no+i, rt->var_no+i);
+	return rt;
+}
+
 struct variable* generate(struct expr* e)
 {
 /*
@@ -1050,6 +1107,16 @@ struct variable* generate(struct expr* e)
 			case OP_BVULT:	return generate_BVULT (v1, v2);
 			default:	assert(0);
 		}
+	};
+	if (e->type==EXPR_TERNARY)
+	{
+		assert (e->op==OP_ITE);
+
+		struct variable* sel=generate(e->op1);
+		struct variable* t=generate(e->op2);
+		struct variable* f=generate(e->op3);
+
+		return generate_ITE(sel, t, f);
 	};
 	assert(0);
 };

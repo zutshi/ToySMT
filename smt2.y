@@ -27,7 +27,7 @@ void yyerror(const char *);
 %token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL
 %token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT
 %token T_WHITESPACE
-%token T_ZERO_EXTEND T_EXTRACT
+%token T_ZERO_EXTEND T_EXTRACT T_ITE
 
 %type <text> T_ID
 %type <i> T_NUMBER
@@ -99,6 +99,10 @@ expr:	T_ID
         | T_L_PAREN T_L_PAREN T_UNDERSCORE T_ZERO_EXTEND T_NUMBER T_R_PAREN expr T_R_PAREN
 	{
 		$$=create_zero_extend_expr($5, $7);
+	}
+        | T_L_PAREN T_ITE expr expr expr T_R_PAREN
+	{
+		$$=create_ternary_expr(OP_ITE, $3, $4, $5);
 	}
         | T_L_PAREN T_L_PAREN T_UNDERSCORE T_EXTRACT T_NUMBER T_NUMBER T_R_PAREN expr T_R_PAREN
 	{

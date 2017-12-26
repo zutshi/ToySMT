@@ -23,7 +23,8 @@ enum OP
 	OP_BVUGE,
 	OP_BVUGT,
 	OP_BVULE,
-	OP_BVULT
+	OP_BVULT,
+	OP_ITE
 };
 
 enum EXPR_TYPE
@@ -31,6 +32,7 @@ enum EXPR_TYPE
 	EXPR_ID,
 	EXPR_UNARY,
 	EXPR_BINARY,
+	EXPR_TERNARY,
 	EXPR_CONST,
 	EXPR_ZERO_EXTEND, // op1 and const_val are used!
 	EXPR_EXTRACT // op1 and const_val and const_width are used!
@@ -48,6 +50,8 @@ struct expr
 	struct expr* op1;
 	// in case of EXPR_BINARY
 	struct expr* op2;
+	// in case of EXPR_TERNARY (OP_ITE):
+	struct expr* op3;
 
 	// in case of EXPR_CONST
 	//uint64_t const_val;
@@ -60,11 +64,13 @@ struct expr
 
 struct expr* create_unary_expr(enum OP t, struct expr* op);
 struct expr* create_bin_expr(enum OP t, struct expr* op1, struct expr* op2);
+struct expr* create_ternary_expr(enum OP t, struct expr* op1, struct expr* op2, struct expr* op3);
 struct expr* create_vararg_expr(enum OP t, struct expr* args);
 struct expr* create_distinct_expr(struct expr* args);
 struct expr* create_const_expr(uint32_t c, int w);
 struct expr* create_zero_extend_expr(int bits, struct expr* e);
 struct expr* create_extract_expr(unsigned end, unsigned start, struct expr* e);
+struct expr* create_ITE(struct expr* sel, struct expr* t, struct expr* f);
 
 struct variable* create_variable(char *name, int type, int width, int internal);
 void init();

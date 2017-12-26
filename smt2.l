@@ -46,6 +46,7 @@ void yyerror(char *);
 "QF_BV"		{ return T_QF_BV; }
 "zero_extend"	{ return T_ZERO_EXTEND; }
 "extract"	{ return T_EXTRACT; }
+"ite"		{ return T_ITE; }
 ":smt-lib-version" { return T_SMT_LIB_VERSION; }
 bv[0-9]+	{
 			if (sscanf(yytext+2, "%d", &yylval.i)!=1)
@@ -65,7 +66,7 @@ bv[0-9]+	{
 		}
 
 [a-zA-Z]+[a-zA-Z0-9]* 	{
-			yylval.text=strdup(yytext);
+			yylval.text=xstrdup(yytext);
 			return T_ID;
 		}
 [0-9]+		{
