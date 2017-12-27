@@ -25,7 +25,7 @@ void yyerror(const char *);
 %token T_NUMBER T_ID T_TEXT T_CONST T_BV_DEC_CONST
 %token T_BOOL T_BITVEC
 %token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL
-%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT
+%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT T_BVSHL1
 %token T_WHITESPACE
 %token T_ZERO_EXTEND T_EXTRACT T_ITE
 
@@ -73,6 +73,7 @@ unary_func:
 	T_NOT		{ $$=OP_NOT; }
 	| T_BVNOT	{ $$=OP_BVNOT; }
 	| T_BVNEG	{ $$=OP_BVNEG; }
+	| T_BVSHL1	{ $$=OP_BVSHL1; }
 	;
 
 expr_list:	expr
@@ -178,13 +179,16 @@ void yyerror(const char *s)
 
 int main(int argc, char *argv[])
 {
-	int i=1;
-	for (; argv[i][0]=='-'; i++)
+	int i;
+	for (i=1; i<argc && argv[i][0]=='-'; i++)
 	{
 		// handle switches
 		if (strcmp(argv[i], "--dump-internal-variables")==0)
 			dump_internal_variables=true;
 	};
+
+	if (i>=argc)
+		die ("Usage: filename.smt\n");
 
 	FILE* input = fopen(argv[i], "r");
 	if (input==NULL)

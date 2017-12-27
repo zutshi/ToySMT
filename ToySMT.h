@@ -9,6 +9,7 @@
 enum OP
 {
 	OP_NOT,
+	OP_BVSHL1,
 	OP_EQ,
 	OP_NEQ,
 	OP_AND,

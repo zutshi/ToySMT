@@ -889,7 +889,8 @@ struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add)
 	add_Tseitin_EQ_bitvecs(in->width, in->var_no, rt->var_no);
 
 	for (int i=0; i<zeroes_to_add; i++)
-		add_Tseitin_EQ(rt->var_no+in->width, VAR_ALWAYS_FALSE);
+		//add_Tseitin_EQ(rt->var_no + in->width + i, VAR_ALWAYS_FALSE);
+		add_clause1(-(rt->var_no + in->width + i));
 
 	return rt;
 };
@@ -943,7 +944,6 @@ struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
 	int w=X->width;
 	int final_w=w*2;
 
-	//printf ("w, final_w=%d, %d\n", w, final_w);
 	struct variable* X_extended=generate_zero_extend(X, w);
 
 	struct variable* partial_products1[w]; // warning: GCC (?) extension
@@ -952,10 +952,8 @@ struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
 	for (int i=0; i<w; i++)
 	{
 		partial_products1[i]=create_internal_variable("partial_product1", TY_BITVEC, final_w);
-		add_Tseitin_mult_by_bit(final_w, X_extended->var_no+i, partial_products1[i]->var_no+i, Y->var_no+i);
+		add_Tseitin_mult_by_bit(final_w, X_extended->var_no, partial_products1[i]->var_no, Y->var_no+i);
 		partial_products2[i]=generate_shift_left(partial_products1[i], i);
-		//if (i!=0)
-		//	partial_products2[i-1]->next=partial_products2[i];
 	};
 
 	struct variable *product=partial_products2[0];
@@ -963,53 +961,7 @@ struct variable* generate_BVMUL(struct variable* X, struct variable* Y)
 	for (int i=1; i<w; i++)
 		product=generate_BVADD(product, partial_products2[i]);
 
-	//printf ("%d\n", product->width);
-	//return X_extended;
-	//return create_internal_variable("internal", TY_BITVEC, w);
 	return generate_extract(product, 0, w);
-#if 0
-	assert (X->type==TY_BITVEC);
-	assert (Y->type==TY_BITVEC);
-	assert (X->width==Y->width);
-	int w=X->width;
-
-	// TODO make func?
-	struct variable* always_false=create_internal_variable("always_false", TY_BOOL, 1);
-	add_clause1(-always_false->var_no);
-
-	struct variable* product=create_internal_variable("product", TY_BITVEC, w);
-	struct variable* prev=create_internal_variable("prev", TY_BITVEC, w);
-	// TODO func:
-	for (int i=0; i<w; i++)
-		add_Tseitin_EQ(prev->var_no+i, always_false->var_no);
-
-/*
- 10 = 1
-10  = 2
-110
-*/
-	for (int i=0; i<w; i++)
-	{
-		struct variable* partial_product=create_internal_variable("partial_product", TY_BITVEC, w);
-		printf ("partial_product=%s\n", partial_product->id);
-		generate_mult_by_bit(w, X->var_no, partial_product->var_no, Y->var_no+i);
-		struct variable *sum;
-		struct variable *carry;
-		printf ("going to sum %s and %s\n", partial_product->id, prev->id);
-		generate_adder(partial_product, prev, always_false /* carry_in */, &sum, &carry);
-		printf ("sum=%s\n", sum->id);
-		// LSB of sum:
-		int LSB_var_no=sum->var_no+i;
-		add_Tseitin_EQ(LSB_var_no, product->var_no+i);
-		struct variable* new_prev=create_internal_variable("new_prev", TY_BITVEC, w);
-		//add_Tseitin_EQ(new_prev->var_no+w-1, carry->var_no);
-		for (int j=0; j<w-1; j++)
-			add_Tseitin_EQ(new_prev->var_no+j, sum->var_no+j+1);
-		printf ("new_prev=%s\n", new_prev->id);
-		prev=new_prev;
-	};
-	return product;
-#endif
 };
 
 struct variable* generate_OR(struct variable* v1, struct variable* v2)
@@ -1083,6 +1035,7 @@ struct variable* generate(struct expr* e)
 			case OP_NOT:	return generate_NOT (generate (e->op1));
 			case OP_BVNOT:	return generate_BVNOT (generate (e->op1));
 			case OP_BVNEG:	return generate_BVNEG (generate (e->op1));
+			case OP_BVSHL1:	return generate_shift_left (generate (e->op1), 1);
 			default:	assert(0);
 		};
 	};
