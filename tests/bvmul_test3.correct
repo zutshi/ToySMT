@@ -1,0 +1,6 @@
+sat
+(model
+	(define-fun a () (_ BitVec 16) (_ bv4660 16)) ; 0x1234
+	(define-fun b () (_ BitVec 16) (_ bv13 16)) ; 0xd
+	(define-fun out () (_ BitVec 16) (_ bv60580 16)) ; 0xeca4
+)

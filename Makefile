@@ -1,4 +1,4 @@
-COPT=-Wall -g -c
+COPT=-Wall -g -c -O3
 #COPT=-Wall -g -pg -c
 
 all: ToySMT

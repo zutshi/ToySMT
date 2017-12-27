@@ -403,7 +403,7 @@ struct clause
 struct clause *clauses=NULL;
 struct clause *last_clause=NULL;
 
-void add_line(const char *s)
+void add_line(char *s)
 {
 	if (clauses==NULL)
 		last_clause=clauses=xmalloc(sizeof(struct clause));
@@ -414,7 +414,8 @@ void add_line(const char *s)
 		last_clause=cl;
 	};
 	
-	last_clause->c=xstrdup(s);
+	//last_clause->c=xstrdup(s);
+	last_clause->c=s;
 
 #if 0
 	struct clause* c;
@@ -437,8 +438,10 @@ void add_clause(const char* fmt, ...)
 	va_list va;
 	va_start (va, fmt);
 
-	char buf[200];
-	vsnprintf (buf, sizeof(buf), fmt, va);
+	size_t buflen=1024;
+	char* buf=xmalloc(buflen);
+	int written=vsnprintf (buf, buflen-2, fmt, va);
+	assert (written<buflen);
 	strcpy (buf+strlen(buf), " 0");
 
 	//printf ("%s() %s\n", __FUNCTION__, buf);
@@ -1100,13 +1103,15 @@ void write_CNF(char *fname)
 
 void check_sat()
 {
-	//printf ("%s()\n", __FUNCTION__);
+	//printf ("%s() begin\n", __FUNCTION__);
 	write_CNF ("tmp.cnf");
 
 	unlink ("result.txt");
 	int rt=system ("minisat tmp.cnf result.txt > /dev/null");
 	if (rt==32512)
 		die ("Error: minisat execitable not found. install it please.\n");
+
+	//printf ("%s() minisat done\n", __FUNCTION__);
 
 	// TODO parse_SAT_response()
 	size_t buflen=next_var_no*10;

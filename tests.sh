@@ -29,5 +29,6 @@ fi
 ./ToySMT tests/extract_test.smt > tmp && diff tmp tests/extract_test.correct
 ./ToySMT tests/ite_test1.smt > tmp && diff tmp tests/ite_test1.correct
 ./ToySMT tests/bvmul_test.smt > tmp && diff tmp tests/bvmul_test.correct
+./ToySMT tests/bvmul_test3.smt > tmp && diff tmp tests/bvmul_test3.correct
 ./ToySMT tests/factorize.smt > tmp && diff tmp tests/factorize.correct
 
