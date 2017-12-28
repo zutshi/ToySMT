@@ -688,7 +688,7 @@ struct variable* generate_BVSUB_borrow(struct variable* v1, struct variable* v2)
 	add_comment ("generate_BVSUB_borrow");
 
 	int borrow=VAR_ALWAYS_FALSE;
-	struct variable* borrow_out;
+	struct variable* borrow_out=NULL; // make compiler happy
 
 	// the first full-subtractor could be half-subtractor, but we make things simple here
 	for (int i=0; i<v1->width; i++)
@@ -756,6 +756,22 @@ struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
 	struct variable *v=generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
 	//printf ("%s() returns %s\n", __FUNCTION__, v->id);
 	return v;
+};
+
+// fwd decl:
+struct variable* generate_ITE(struct variable* sel, struct variable* t, struct variable* f);
+
+// it's like SUBGE in ARM CPU in ARM mode
+struct variable* generate_BVSUBGE(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+
+	struct variable *cond=generate_BVUGE(v1, v2);
+	struct variable *diff=generate_BVSUB(v1, v2);
+
+	return generate_ITE(cond, diff, v1);
 };
 
 struct variable* generate_XOR(struct variable* v1, struct variable* v2)
@@ -1035,11 +1051,11 @@ struct variable* generate(struct expr* e)
 	{
 		switch (e->op)
 		{
-			case OP_NOT:	return generate_NOT (generate (e->op1));
-			case OP_BVNOT:	return generate_BVNOT (generate (e->op1));
-			case OP_BVNEG:	return generate_BVNEG (generate (e->op1));
-			case OP_BVSHL1:	return generate_shift_left (generate (e->op1), 1);
-			default:	assert(0);
+			case OP_NOT:		return generate_NOT (generate (e->op1));
+			case OP_BVNOT:		return generate_BVNOT (generate (e->op1));
+			case OP_BVNEG:		return generate_BVNEG (generate (e->op1));
+			case OP_BVSHL1:		return generate_shift_left (generate (e->op1), 1);
+			default:		assert(0);
 		};
 	};
 	if (e->type==EXPR_BINARY)
@@ -1048,20 +1064,21 @@ struct variable* generate(struct expr* e)
 		struct variable* v2=generate(e->op2);
 		switch (e->op)
 		{
-			case OP_EQ:	return generate_EQ (v1, v2);
-			case OP_NEQ:	return generate_NEQ (v1, v2);
-			case OP_OR:	return generate_OR (v1, v2);
-			case OP_XOR:	return generate_XOR (v1, v2);
-			case OP_AND:	return generate_AND (v1, v2);
-			case OP_BVXOR:	return generate_BVXOR (v1, v2);
-			case OP_BVADD:	return generate_BVADD (v1, v2);
-			case OP_BVSUB:	return generate_BVSUB (v1, v2);
-			case OP_BVMUL:	return generate_BVMUL (v1, v2);
-			case OP_BVUGE:	return generate_BVUGE (v1, v2);
-			case OP_BVULE:	return generate_BVULE (v1, v2);
-			case OP_BVUGT:	return generate_BVUGT (v1, v2);
-			case OP_BVULT:	return generate_BVULT (v1, v2);
-			default:	assert(0);
+			case OP_EQ:		return generate_EQ (v1, v2);
+			case OP_NEQ:		return generate_NEQ (v1, v2);
+			case OP_OR:		return generate_OR (v1, v2);
+			case OP_XOR:		return generate_XOR (v1, v2);
+			case OP_AND:		return generate_AND (v1, v2);
+			case OP_BVXOR:		return generate_BVXOR (v1, v2);
+			case OP_BVADD:		return generate_BVADD (v1, v2);
+			case OP_BVSUB:		return generate_BVSUB (v1, v2);
+			case OP_BVMUL:		return generate_BVMUL (v1, v2);
+			case OP_BVUGE:		return generate_BVUGE (v1, v2);
+			case OP_BVULE:		return generate_BVULE (v1, v2);
+			case OP_BVUGT:		return generate_BVUGT (v1, v2);
+			case OP_BVULT:		return generate_BVULT (v1, v2);
+			case OP_BVSUBGE:	return generate_BVSUBGE (v1, v2);
+			default:		assert(0);
 		}
 	};
 	if (e->type==EXPR_TERNARY)

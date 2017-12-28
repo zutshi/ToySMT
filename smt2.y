@@ -25,7 +25,7 @@ void yyerror(const char *);
 %token T_NUMBER T_ID T_TEXT T_CONST T_BV_DEC_CONST
 %token T_BOOL T_BITVEC
 %token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL
-%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT T_BVSHL1
+%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT T_BVSHL1 T_BVSUBGE
 %token T_WHITESPACE
 %token T_ZERO_EXTEND T_EXTRACT T_ITE
 
@@ -33,6 +33,7 @@ void yyerror(const char *);
 %type <i> T_NUMBER
 %type <i> T_BV_DEC_CONST
 %type <i> unary_func
+%type <i> binary_func
 %type <e> expr
 %type <e> expr_list
 %type <e> T_CONST
@@ -76,6 +77,15 @@ unary_func:
 	| T_BVSHL1	{ $$=OP_BVSHL1; }
 	;
 
+binary_func:
+	T_BVSUBGE	{ $$=OP_BVSUBGE; }
+	| T_EQ		{ $$=OP_EQ; }
+	| T_BVUGE	{ $$=OP_BVUGE; }
+	| T_BVULE	{ $$=OP_BVULE; }
+	| T_BVUGT	{ $$=OP_BVUGT; }
+	| T_BVULT	{ $$=OP_BVULT; }
+	;
+
 expr_list:	expr
 		| expr_list expr
 		{
@@ -113,9 +123,9 @@ expr:	T_ID
 	{
 		$$=create_unary_expr($2, $3);
 	}
-        | T_L_PAREN T_EQ expr expr T_R_PAREN
+        | T_L_PAREN binary_func expr expr T_R_PAREN
 	{
-		$$=create_bin_expr(OP_EQ, $3, $4);
+		$$=create_bin_expr($2, $3, $4);
 	}
         | T_L_PAREN T_OR expr_list T_R_PAREN
 	{
@@ -148,22 +158,6 @@ expr:	T_ID
         | T_L_PAREN T_DISTINCT expr_list T_R_PAREN
 	{
 		$$=create_distinct_expr($3);
-	}
-        | T_L_PAREN T_BVUGE expr expr T_R_PAREN
-	{
-		$$=create_bin_expr(OP_BVUGE, $3, $4);
-	}
-        | T_L_PAREN T_BVULE expr expr T_R_PAREN
-	{
-		$$=create_bin_expr(OP_BVULE, $3, $4);
-	}
-        | T_L_PAREN T_BVUGT expr expr T_R_PAREN
-	{
-		$$=create_bin_expr(OP_BVUGT, $3, $4);
-	}
-        | T_L_PAREN T_BVULT expr expr T_R_PAREN
-	{
-		$$=create_bin_expr(OP_BVULT, $3, $4);
 	}
         ;
 

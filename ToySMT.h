@@ -25,6 +25,7 @@ enum OP
 	OP_BVUGT,
 	OP_BVULE,
 	OP_BVULT,
+	OP_BVSUBGE,
 	OP_ITE
 };
 

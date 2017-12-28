@@ -48,6 +48,7 @@ void yyerror(char *);
 "extract"	{ return T_EXTRACT; }
 "ite"		{ return T_ITE; }
 "bvshl1"	{ return T_BVSHL1; }
+"bvsubge"	{ return T_BVSUBGE; }
 ":smt-lib-version" { return T_SMT_LIB_VERSION; }
 bv[0-9]+	{
 			if (sscanf(yytext+2, "%d", &yylval.i)!=1)
