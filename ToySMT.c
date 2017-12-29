@@ -13,6 +13,9 @@
 #define VAR_ALWAYS_FALSE 1
 #define VAR_ALWAYS_TRUE 2
 
+struct variable* var_always_false=NULL;
+struct variable* var_always_true=NULL;
+
 // global switches
 bool dump_internal_variables;
 
@@ -352,14 +355,12 @@ struct variable* create_variable(char *name, int type, int width, int internal)
 	if (vars==NULL)
 	{
 		v=vars=xmalloc(sizeof(struct variable));
-		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	}
 	else
 	{
 		for (v=vars; v->next; v=v->next);
 		v->next=xmalloc(sizeof(struct variable));
 		v=v->next;
-		//printf ("%s() line %d\n", __FUNCTION__, __LINE__);
 	};
 	v->type=type;
 	v->id=xstrdup(name); // TODO replace strdup with something
@@ -414,23 +415,7 @@ void add_line(char *s)
 		last_clause=cl;
 	};
 	
-	//last_clause->c=xstrdup(s);
 	last_clause->c=s;
-
-#if 0
-	struct clause* c;
-
-	if (clauses==NULL)
-		c=clauses=GC_MALLOC_ATOMIC(sizeof(struct clause));
-	else
-	{
-		for (c=clauses; c->next; c=c->next);
-		c->next=GC_MALLOC_ATOMIC(sizeof(struct clause));
-		c=c->next;
-	}
-
-	c->c=strdup(s);
-#endif
 }
 
 void add_clause(const char* fmt, ...)
@@ -443,8 +428,6 @@ void add_clause(const char* fmt, ...)
 	int written=vsnprintf (buf, buflen-2, fmt, va);
 	assert (written<buflen);
 	strcpy (buf+strlen(buf), " 0");
-
-	//printf ("%s() %s\n", __FUNCTION__, buf);
 
 	add_line(buf);
 
@@ -611,27 +594,6 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
 	struct variable *carry_out;
 	generate_adder(v1, v2, always_false, &sum, &carry_out);
 	return sum;
-/*
-	struct variable* rt=create_internal_variable(TY_BITVEC, v1->width);
-	add_comment ("generate_BVADD");
-
-	// TODO make func?
-	struct variable* always_false=create_internal_variable(TY_BOOL, 1);
-	add_clause1(-always_false->var_no);
-
-	int carry=always_false->var_no;
-
-	// the first full-adder could be half-adder, but we make things simple here
-	for (int i=0; i<v1->width; i++)
-	{
-		struct variable* carry_out=create_internal_variable(TY_BOOL, 1);
-		add_FA(v1->var_no+i, v2->var_no+i, carry, rt->var_no+i, carry_out->var_no);
-		// newly created carry_out is a carry_in for the next full-adder:
-		carry=carry_out->var_no;
-	};
-
-	return rt;
-*/
 };
 
 // TODO use Tseitin + gates?
@@ -711,11 +673,8 @@ struct variable* generate_BVULT(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
 	add_comment (__FUNCTION__);
 
-	//return generate_OR(generate_BVSUB_borrow(v1, v2), generate_EQ(v1, v2));
-	//return generate_NOT(generate_BVSUB_borrow(v1, v2));
 	return generate_BVSUB_borrow(v1, v2);
 };
 
@@ -724,13 +683,9 @@ struct variable* generate_BVULE(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
 	add_comment (__FUNCTION__);
 
-	//return generate_OR(generate_BVSUB_borrow(v1, v2), generate_EQ(v1, v2));
-	struct variable *v=generate_OR(generate_BVULT(v1, v2), generate_EQ(v1, v2));
-	//printf ("%s() returns %s\n", __FUNCTION__, v->id);
-	return v;
+	return generate_OR(generate_BVULT(v1, v2), generate_EQ(v1, v2));
 };
 
 struct variable* generate_BVUGT(struct variable* v1, struct variable* v2)
@@ -742,7 +697,6 @@ struct variable* generate_BVUGT(struct variable* v1, struct variable* v2)
 	add_comment (__FUNCTION__);
 
 	return generate_BVSUB_borrow(v2, v1);
-	//return generate_OR(generate_NOT(generate_BVSUB_borrow(v1, v2)), generate_EQ(v1, v2));
 };
 
 struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
@@ -753,25 +707,89 @@ struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
 	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
 	add_comment (__FUNCTION__);
 
-	struct variable *v=generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
-	//printf ("%s() returns %s\n", __FUNCTION__, v->id);
-	return v;
+	return generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
 };
 
 // fwd decl:
 struct variable* generate_ITE(struct variable* sel, struct variable* t, struct variable* f);
 
 // it's like SUBGE in ARM CPU in ARM mode
-struct variable* generate_BVSUBGE(struct variable* v1, struct variable* v2)
+void generate_BVSUBGE(struct variable* enable, struct variable* v1, struct variable* v2,
+	struct variable** output, struct variable** cond)
 {
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
 
-	struct variable *cond=generate_BVUGE(v1, v2);
+	*cond=generate_BVUGE(v1, v2);
 	struct variable *diff=generate_BVSUB(v1, v2);
 
-	return generate_ITE(cond, diff, v1);
+	*output=generate_ITE(enable, generate_ITE(*cond, diff, v1), v1);
+};
+
+// fwd decl:
+void add_Tseitin_OR_list(int var, int width, int var_out);
+struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add);
+
+void add_Tseitin_BV_is_zero (int var_no, int width, int var_no_out)
+{
+	// all bits in BV are zero?
+
+	//int tmp=next_var_no++; // allocate var
+	struct variable *tmp=create_internal_variable("tmp", TY_BOOL, 1);
+	add_Tseitin_OR_list(var_no, width, tmp->var_no);
+	add_Tseitin_NOT(tmp->var_no, var_no_out);
+};
+
+// fwd decl
+void add_Tseitin_EQ(int v1, int v2);
+struct variable* generate_shift_left(struct variable* X, unsigned int cnt);
+struct variable* generate_extract(struct variable *v, unsigned begin, unsigned width);
+struct variable* generate_shift_right(struct variable* X, unsigned int cnt);
+
+void generate_divisor (struct variable* divident, struct variable* divisor, struct variable** q, struct variable** r)
+{
+	assert (divident->type==TY_BITVEC);
+	assert (divisor->type==TY_BITVEC);
+	assert (divident->width==divisor->width);
+	int w=divident->width;
+	struct variable* wide1=generate_zero_extend(divisor, w);
+	struct variable* wide2=generate_shift_left(wide1, w-1);
+
+	*q=create_internal_variable("quotient", TY_BITVEC, w);
+
+	for (int i=0; i<w; i++)
+	{
+		struct variable* enable=create_internal_variable("enable", TY_BOOL, 1);
+		// enable is 1 if high part of wide2 is cleared
+		add_Tseitin_BV_is_zero (wide2->var_no+w, w, enable->var_no);
+
+		struct variable* cond;
+		generate_BVSUBGE(enable, divident, generate_extract(wide2, 0, w), &divident, &cond);
+		add_Tseitin_EQ(cond->var_no, (*q)->var_no+w-1-i);
+		wide2=generate_shift_right(wide2, 1);
+	};
+	*r=divident;
+};
+
+struct variable* generate_BVUDIV(struct variable* v1, struct variable* v2)
+{
+	struct variable *q;
+	struct variable *r;
+
+	generate_divisor (v1, v2, &q, &r);
+
+	return q;
+};
+
+struct variable* generate_BVUREM(struct variable* v1, struct variable* v2)
+{
+	struct variable *q;
+	struct variable *r;
+
+	generate_divisor (v1, v2, &q, &r);
+
+	return r;
 };
 
 struct variable* generate_XOR(struct variable* v1, struct variable* v2)
@@ -798,15 +816,22 @@ struct variable* generate_BVXOR(struct variable* v1, struct variable* v2)
 
 // as in Tseitin transformations.
 // return=var OR var+1 OR ... OR var+width-1
+void add_Tseitin_OR_list(int var, int width, int var_out)
+{
+	//printf ("%s(%d, %d)\n", __FUNCTION__, var, width);
+	add_comment (__FUNCTION__);
+	char* tmp=create_string_of_numbers_in_range(var, width);
+	add_clause("%s -%d", tmp, var_out);
+	for (int i=0; i<width; i++)
+		add_clause2(-(var+i), var_out);
+};
+
 struct variable* generate_OR_list(int var, int width)
 {
 	//printf ("%s(%d, %d)\n", __FUNCTION__, var, width);
 	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
-	add_comment ("generate_OR_list");
-	char* tmp=create_string_of_numbers_in_range(var, width);
-	add_clause("%s -%d", tmp, rt->var_no);
-	for (int i=0; i<width; i++)
-		add_clause2(-(var+i), rt->var_no);
+	add_comment (__FUNCTION__);
+	add_Tseitin_OR_list(var, width, rt->var_no);
 	return rt;
 };
 
@@ -854,11 +879,6 @@ struct variable* generate_AND(struct variable* v1, struct variable* v2)
 {
 	struct variable* rt=create_internal_variable("internal", TY_BOOL, 1);
 	add_comment ("generate_AND");
-/*
-	add_clause3 (-v1->var_no, -v2->var_no, rt->var_no);
-	add_clause2 (v1->var_no, -rt->var_no);
-	add_clause2 (v2->var_no, -rt->var_no);
-*/
 	add_Tseitin_AND(v1->var_no, v2->var_no, rt->var_no);
 	return rt;
 };
@@ -914,35 +934,32 @@ struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add)
 	return rt;
 };
 
-/*
-    # bit order: [MSB..LSB]
-    # build multiplier using adders and mult_by_bit blocks:
-    def multiplier(self, X, Y):
-        assert len(X)==len(Y)
-        out=[]
-        #initial:
-        prev=[self.const_false]*len(X)
-        # first adder can be skipped, but I left thing "as is" to make it simpler
-        for Y_bit in frolic.rvr(Y):
-            s, carry = self.adder(self.mult_by_bit(X, Y_bit), prev)
-            out.append(s[-1])
-            prev=[carry] + s[:-1]
-    
-        return prev + frolic.rvr(out)
-*/
+void add_Tseitin_always_false(int v, int width)
+{
+	for (int i=0; i<width; i++)
+		add_Tseitin_EQ(v+i, VAR_ALWAYS_FALSE);
+};
 
 struct variable* generate_shift_left(struct variable* X, unsigned int cnt)
 {
 	int w=X->width;
 
-	struct variable* rt=create_internal_variable("shifted", TY_BITVEC, w);
+	struct variable* rt=create_internal_variable("shifted_left", TY_BITVEC, w);
 
-	for (int i=0; i<cnt; i++)
-		add_Tseitin_EQ(rt->var_no+i, VAR_ALWAYS_FALSE);
+	add_Tseitin_always_false(rt->var_no, cnt);
+	add_Tseitin_EQ_bitvecs(w-cnt, rt->var_no+cnt, X->var_no);
 
-	for (int i=0; i<w-cnt; i++)
-		add_Tseitin_EQ(rt->var_no+cnt+i, X->var_no+i);
+	return rt;
+};
 
+struct variable* generate_shift_right(struct variable* X, unsigned int cnt)
+{
+	int w=X->width;
+
+	struct variable* rt=create_internal_variable("shifted_right", TY_BITVEC, w);
+
+	add_Tseitin_always_false(rt->var_no+w-1-cnt, cnt);
+	add_Tseitin_EQ_bitvecs(w-cnt, rt->var_no, X->var_no+cnt);
 	return rt;
 };
 
@@ -1055,6 +1072,7 @@ struct variable* generate(struct expr* e)
 			case OP_BVNOT:		return generate_BVNOT (generate (e->op1));
 			case OP_BVNEG:		return generate_BVNEG (generate (e->op1));
 			case OP_BVSHL1:		return generate_shift_left (generate (e->op1), 1);
+			case OP_BVSHR1:		return generate_shift_right (generate (e->op1), 1);
 			default:		assert(0);
 		};
 	};
@@ -1077,7 +1095,15 @@ struct variable* generate(struct expr* e)
 			case OP_BVULE:		return generate_BVULE (v1, v2);
 			case OP_BVUGT:		return generate_BVUGT (v1, v2);
 			case OP_BVULT:		return generate_BVULT (v1, v2);
-			case OP_BVSUBGE:	return generate_BVSUBGE (v1, v2);
+			case OP_BVSUBGE:
+						{
+							struct variable *output;
+							struct variable *cond;
+							generate_BVSUBGE (var_always_true, v1, v2, &output, &cond);
+							return output;
+						};
+			case OP_BVUDIV:		return generate_BVUDIV (v1, v2);
+			case OP_BVUREM:		return generate_BVUREM (v1, v2);
 			default:		assert(0);
 		}
 	};
@@ -1136,10 +1162,10 @@ void check_sat()
 	assert(buf);
 
 	FILE* f=fopen ("result.txt", "rt");
-	fgets (buf, buflen, f);
+	assert (fgets (buf, buflen, f)!=NULL);
 	if (strncmp (buf, "SAT", 3)==0)
 	{
-		fgets (buf, buflen, f);
+		assert (fgets (buf, buflen, f)!=NULL);
 		//printf ("2nd line: %s\n", buf);
 		size_t total;	
 		int *array=list_of_numbers_to_array(buf, next_var_no, &total);
@@ -1204,5 +1230,10 @@ void init()
 {
 	add_clause1(-VAR_ALWAYS_FALSE);
 	add_clause1(VAR_ALWAYS_TRUE);
+
+	var_always_false=create_variable("always_false", TY_BOOL, 1, true);
+	add_clause1(-var_always_false->var_no);
+	var_always_true=create_variable("always_true", TY_BOOL, 1, true);
+	add_clause1(var_always_true->var_no);
 };
 

@@ -24,8 +24,8 @@ void yyerror(const char *);
 %token T_SMT_LIB_VERSION
 %token T_NUMBER T_ID T_TEXT T_CONST T_BV_DEC_CONST
 %token T_BOOL T_BITVEC
-%token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL
-%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT T_BVSHL1 T_BVSUBGE
+%token T_EQ T_NOT T_OR T_XOR T_AND T_BVXOR T_BVADD T_BVSUB T_BVMUL T_BVUDIV T_BVUREM
+%token T_BVUGE T_BVULE T_BVUGT T_BVULT T_DISTINCT T_BVSHL1 T_BVSHR1 T_BVSUBGE
 %token T_WHITESPACE
 %token T_ZERO_EXTEND T_EXTRACT T_ITE
 
@@ -75,6 +75,7 @@ unary_func:
 	| T_BVNOT	{ $$=OP_BVNOT; }
 	| T_BVNEG	{ $$=OP_BVNEG; }
 	| T_BVSHL1	{ $$=OP_BVSHL1; }
+	| T_BVSHR1	{ $$=OP_BVSHR1; }
 	;
 
 binary_func:
@@ -84,6 +85,8 @@ binary_func:
 	| T_BVULE	{ $$=OP_BVULE; }
 	| T_BVUGT	{ $$=OP_BVUGT; }
 	| T_BVULT	{ $$=OP_BVULT; }
+	| T_BVUDIV	{ $$=OP_BVUDIV; }
+	| T_BVUREM	{ $$=OP_BVUREM; }
 	;
 
 expr_list:	expr

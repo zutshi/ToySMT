@@ -32,4 +32,6 @@ fi
 ./ToySMT tests/bvmul_test3.smt > tmp && diff tmp tests/bvmul_test3.correct
 ./ToySMT tests/factorize.smt > tmp && diff tmp tests/factorize.correct
 ./ToySMT tests/bvsubge.smt > tmp && diff tmp tests/bvsubge.correct
+./ToySMT tests/bvudiv_test.smt > tmp && diff tmp tests/bvudiv_test.correct
+./ToySMT tests/bvudiv_test2.smt > tmp && diff tmp tests/bvudiv_test2.correct
 

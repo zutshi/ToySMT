@@ -10,6 +10,7 @@ enum OP
 {
 	OP_NOT,
 	OP_BVSHL1,
+	OP_BVSHR1,
 	OP_EQ,
 	OP_NEQ,
 	OP_AND,
@@ -26,6 +27,8 @@ enum OP
 	OP_BVULE,
 	OP_BVULT,
 	OP_BVSUBGE,
+	OP_BVUDIV,
+	OP_BVUREM,
 	OP_ITE
 };
 
