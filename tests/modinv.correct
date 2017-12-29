@@ -1,0 +1,4 @@
+sat
+(model
+	(define-fun m () (_ BitVec 16) (_ bv10923 16)) ; 0x2aab
+)
