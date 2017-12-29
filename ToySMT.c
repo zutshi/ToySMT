@@ -694,7 +694,6 @@ struct variable* generate_BVUGT(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
 	add_comment (__FUNCTION__);
 
 	return generate_BVSUB_borrow(v2, v1);
@@ -705,7 +704,6 @@ struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	//struct variable* rt=create_internal_variable(TY_BOOL, v1->width);
 	add_comment (__FUNCTION__);
 
 	return generate_OR(generate_BVUGT(v1, v2), generate_EQ(v1, v2));
@@ -1033,6 +1031,7 @@ struct variable* generate_OR(struct variable* v1, struct variable* v2)
 	return rt;
 };
 
+// selector, true, false, x (output)
 void add_Tseitin_ITE (int s, int t, int f, int x)
 {
 	add_comment (__FUNCTION__);
@@ -1169,18 +1168,42 @@ void write_CNF(char *fname)
 		fprintf (f, "%s\n", c->c);
 	fclose (f);
 };
-
-void check_sat()
+void fill_variables_from_SAT_solver_response(int *array)
 {
-	//printf ("%s() begin\n", __FUNCTION__);
+	for (int i=0; array[i]; i++)
+	{
+		struct variable* sv;
+		// works for both bools and bitvecs. set bit.
+		int v=array[i];
+
+		// fixed to false/true, absent in our tables:
+		if (abs(v)==1 || abs(v)==2)
+			continue;
+		if (v<0)
+		{
+			sv=find_variable_by_no(-v);
+			assert(sv);
+			//sv->val &= ~(1<<((-v) - sv->var_no));
+			clear_bit(&sv->val, (-v) - sv->var_no);
+		}
+		else
+		{
+			sv=find_variable_by_no(v);
+			assert(sv);
+			//sv->val |= (1<<(v - sv->var_no));
+			set_bit(&sv->val, v - sv->var_no);
+		}
+	}
+};
+
+bool run_SAT_solver_and_get_solution()
+{
 	write_CNF ("tmp.cnf");
 
 	unlink ("result.txt");
 	int rt=system ("minisat tmp.cnf result.txt > /dev/null");
 	if (rt==32512)
 		die ("Error: minisat execitable not found. install it please.\n");
-
-	//printf ("%s() minisat done\n", __FUNCTION__);
 
 	// TODO parse_SAT_response()
 	size_t buflen=next_var_no*10;
@@ -1193,55 +1216,39 @@ void check_sat()
 	{
 		assert (fgets (buf, buflen, f)!=NULL);
 		//printf ("2nd line: %s\n", buf);
-		size_t total;	
+		size_t total;
+		// TODO make use of the fact that list is sorted!
 		int *array=list_of_numbers_to_array(buf, next_var_no, &total);
-		for (int i=0; array[i]; i++)
-		{
-			struct variable* sv;
-			// works for both bools and bitvecs. set bit.
-			int v=array[i];
-
-			// fixed to false/true, absent in our tables:
-			if (abs(v)==1 || abs(v)==2)
-				continue;
-			if (v<0)
-			{
-				sv=find_variable_by_no(-v);
-				if (sv==NULL)
-				{
-					printf ("Can't find var %d in our tables\n", -v);
-					dump_all_variables(true);
-					exit(0);
-				};
-				//assert(sv);
-				sv->val &= ~(1<<((-v) - sv->var_no));
-			}
-			else
-			{
-				sv=find_variable_by_no(v);
-				if (sv==NULL)
-				{
-					printf ("Can't find var %d in our tables\n", v);
-					dump_all_variables(true);
-					exit(0);
-				};
-				//assert(sv);
-				sv->val |= (1<<(v - sv->var_no));
-			}
-		}
-		printf ("sat\n");
-		sat=true;
+		fill_variables_from_SAT_solver_response(array);
+		fclose (f);
+		return true;
 	}
 	else if (strncmp (buf, "UNSAT", 5)==0)
 	{
-		printf ("unsat\n");
-		sat=false;
+		fclose (f);
+		return false;
 	}
 	else
 	{
+		fclose (f);
 		die ("Fatal error. 1st line of minisat's answer unparsed: %s\n", buf);
 	}
-	fclose (f);
+	return false; // make compiler happy
+};
+
+void check_sat()
+{
+	bool rt=run_SAT_solver_and_get_solution();
+	if (rt)
+	{
+		sat=true;
+		printf ("sat\n");
+	}
+	else
+	{
+		sat=false;
+		printf ("unsat\n");
+	}
 };
 
 void get_model()
@@ -1254,6 +1261,7 @@ void get_model()
 
 void init()
 {
+	// TODO get rid of:
 	add_clause1(-VAR_ALWAYS_FALSE);
 	add_clause1(VAR_ALWAYS_TRUE);
 
