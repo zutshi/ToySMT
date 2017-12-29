@@ -196,6 +196,7 @@ char* op_name(enum OP op)
 		case OP_BVNEG:	return "bvneg";
 		case OP_BVXOR:	return "bvxor";
 		case OP_BVADD:	return "bvadd";
+		case OP_BVAND:	return "bvand";
 		case OP_BVSUB:	return "bvsub";
 		case OP_BVUGE:	return "bvuge";
 		case OP_BVULE:	return "bvule";
@@ -622,7 +623,7 @@ struct variable* generate_BVSUB(struct variable* v1, struct variable* v2)
 	assert(v1->type==TY_BITVEC);
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
-	struct variable* rt=create_internal_variable("internal", TY_BITVEC, v1->width);
+	struct variable* rt=create_internal_variable("SUB_result", TY_BITVEC, v1->width);
 	add_comment ("generate_BVSUB");
 
 	int borrow=VAR_ALWAYS_FALSE;
@@ -802,6 +803,21 @@ struct variable* generate_XOR(struct variable* v1, struct variable* v2)
 	return rt;
 };
 
+// fwd decl:
+void add_Tseitin_AND(int a, int b, int out);
+
+struct variable* generate_BVAND(struct variable* v1, struct variable* v2)
+{
+	assert(v1->type==TY_BITVEC);
+	assert(v2->type==TY_BITVEC);
+	assert(v1->width==v2->width);
+	struct variable* rt=create_internal_variable("AND_result", TY_BITVEC, v1->width);
+	add_comment (__FUNCTION__);
+	for (int i=0; i<v1->width; i++)
+		add_Tseitin_AND (v1->var_no+i, v2->var_no+i, rt->var_no+i);
+	return rt;
+};
+
 struct variable* generate_BVXOR(struct variable* v1, struct variable* v2)
 {
 	assert(v1->type==TY_BITVEC);
@@ -840,7 +856,13 @@ struct variable* generate_EQ(struct variable* v1, struct variable* v2)
 	//printf ("%s() v1=%d v2=%d\n", __FUNCTION__, v1->var_no, v2->var_no);
 	if (v1->type==TY_BOOL)
 	{
-		assert(v2->type==TY_BOOL);
+		if(v2->type!=TY_BOOL)
+		{
+			printf ("%s() sort mismatch\n", __FUNCTION__);
+			printf ("v1=%s type=%d width=%d\n", v1->id, v1->type, v1->width);
+			printf ("v2=%s type=%d width=%d\n", v2->id, v2->type, v2->width);
+			die("");
+		};
 		add_comment ("generate_EQ");
 		struct variable *v=generate_NOT(generate_XOR(v1, v2));
 		//printf ("%s() returns %s (Bool)\n", __FUNCTION__, v->id);
@@ -848,6 +870,7 @@ struct variable* generate_EQ(struct variable* v1, struct variable* v2)
 	}
 	else
 	{
+		assert (v2->type==TY_BITVEC);
 		if(v1->width!=v2->width)
 		{
 			printf ("line %d. = can't work on bitvectors of different widths. you supplied %d and %d\n",
@@ -1044,6 +1067,8 @@ struct variable* generate(struct expr* e)
 	if (e->type==EXPR_ID)
 	{
 		struct variable* rt=find_variable(e->id);
+		if(rt==NULL)
+			die ("Variable %s hasn't been declared\n", e->id);
 		//printf ("generate -> %d (by id %s)\n", rt->var_no, e->id);
 		return rt;
 	};
@@ -1088,6 +1113,7 @@ struct variable* generate(struct expr* e)
 			case OP_XOR:		return generate_XOR (v1, v2);
 			case OP_AND:		return generate_AND (v1, v2);
 			case OP_BVXOR:		return generate_BVXOR (v1, v2);
+			case OP_BVAND:		return generate_BVAND (v1, v2);
 			case OP_BVADD:		return generate_BVADD (v1, v2);
 			case OP_BVSUB:		return generate_BVSUB (v1, v2);
 			case OP_BVMUL:		return generate_BVMUL (v1, v2);

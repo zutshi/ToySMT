@@ -34,4 +34,7 @@ fi
 ./ToySMT tests/bvsubge.smt > tmp && diff tmp tests/bvsubge.correct
 ./ToySMT tests/bvudiv_test.smt > tmp && diff tmp tests/bvudiv_test.correct
 ./ToySMT tests/bvudiv_test2.smt > tmp && diff tmp tests/bvudiv_test2.correct
+./ToySMT tests/bvneg_test.smt > tmp && diff tmp tests/bvneg_test.correct
+./ToySMT tests/t1.smt > tmp && diff tmp tests/t1.correct
+./ToySMT tests/XOR_alter.smt > tmp && diff tmp tests/XOR_alter.correct
 
