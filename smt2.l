@@ -24,6 +24,8 @@ void yyerror(char *);
 "declare-fun"	{ return T_DECLARE_FUN; }
 "assert"	{ return T_ASSERT; }
 "check-sat"	{ return T_CHECK_SAT; }
+"get-all-models"	{ return T_GET_ALL_MODELS; }
+"count-models"	{ return T_COUNT_MODELS; }
 "get-model"	{ return T_GET_MODEL; }
 "Bool"		{ return T_BOOL; }
 "BitVec"	{ return T_BITVEC; }

@@ -424,9 +424,9 @@ void add_clause(const char* fmt, ...)
 	va_list va;
 	va_start (va, fmt);
 
-	size_t buflen=1024;
+	size_t buflen=vsnprintf (NULL, 0, fmt, va)+2+1;
 	char* buf=xmalloc(buflen);
-	int written=vsnprintf (buf, buflen-2, fmt, va);
+	int written=vsnprintf (buf, buflen, fmt, va);
 	assert (written<buflen);
 	strcpy (buf+strlen(buf), " 0");
 
@@ -903,13 +903,6 @@ struct variable* generate_AND(struct variable* v1, struct variable* v2)
 	add_Tseitin_AND(v1->var_no, v2->var_no, rt->var_no);
 	return rt;
 };
-/*    
-# bit is 0 or 1.
-    # i.e., if it's 0, output is 0 (all bits)
-    # if it's 1, output=input
-    def mult_by_bit(self, X, bit):
-        return [self.AND(i, bit) for i in X]
-*/
 
 void add_Tseitin_mult_by_bit(int width, int var_no_in, int var_no_out, int var_no_bit)
 {
@@ -1168,6 +1161,7 @@ void write_CNF(char *fname)
 		fprintf (f, "%s\n", c->c);
 	fclose (f);
 };
+
 void fill_variables_from_SAT_solver_response(int *array)
 {
 	for (int i=0; array[i]; i++)
@@ -1183,18 +1177,18 @@ void fill_variables_from_SAT_solver_response(int *array)
 		{
 			sv=find_variable_by_no(-v);
 			assert(sv);
-			//sv->val &= ~(1<<((-v) - sv->var_no));
 			clear_bit(&sv->val, (-v) - sv->var_no);
 		}
 		else
 		{
 			sv=find_variable_by_no(v);
 			assert(sv);
-			//sv->val |= (1<<(v - sv->var_no));
 			set_bit(&sv->val, v - sv->var_no);
 		}
 	}
 };
+
+int* solution;
 
 bool run_SAT_solver_and_get_solution()
 {
@@ -1218,8 +1212,8 @@ bool run_SAT_solver_and_get_solution()
 		//printf ("2nd line: %s\n", buf);
 		size_t total;
 		// TODO make use of the fact that list is sorted!
-		int *array=list_of_numbers_to_array(buf, next_var_no, &total);
-		fill_variables_from_SAT_solver_response(array);
+		solution=list_of_numbers_to_array(buf, next_var_no, &total);
+		fill_variables_from_SAT_solver_response(solution);
 		fclose (f);
 		return true;
 	}
@@ -1227,6 +1221,11 @@ bool run_SAT_solver_and_get_solution()
 	{
 		fclose (f);
 		return false;
+	}
+	else if (strncmp (buf, "INDET", 5)==0)
+	{
+		printf ("minisat has been interrupted.\n");
+		exit(0);
 	}
 	else
 	{
@@ -1258,6 +1257,22 @@ void get_model()
 	else
 		printf ("(error \"model is not available\")\n");
 }
+
+void get_all_models(bool dump_variables)
+{
+	int total=0;
+	while (run_SAT_solver_and_get_solution())
+	{
+		total++;
+		if (dump_variables)
+			dump_all_variables(dump_internal_variables);
+		// add negated solution:
+		negate_all_elements_in_int_array(solution);
+		char* str=list_of_ints_to_str(solution);
+		add_clause(str);
+	};
+	printf ("Model count: %d\n", total);
+};
 
 void init()
 {

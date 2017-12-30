@@ -83,6 +83,7 @@ void init();
 void create_assert (struct expr* e);
 void check_sat();
 void get_model();
+void get_all_models(bool dump_variables);
 
 // global switches
 bool dump_internal_variables;

@@ -85,3 +85,33 @@ void clear_bit(uint32_t *v, int bit)
 	(*v)&=~(1<<bit);
 };
 
+void negate_all_elements_in_int_array(int *a)
+{
+	for (int i=0; a[i]; i++)
+		a[i]=-a[i];
+};
+
+size_t count_ints_in_array(int *a)
+{
+	int rt=0;
+	for (int i=0; a[i]; i++)
+		rt++;
+	return rt;
+};
+
+char *list_of_ints_to_str(int *a)
+{
+	char* rt=malloc(count_ints_in_array(a)*10);
+	rt[0]=0;
+	char tmp[32];
+	for (int i=0; a[i]; i++)
+	{
+		sprintf (tmp, "%d ", a[i]);
+		strcat (rt, tmp);
+	}
+	rt[strlen(rt)-1]=0;
+	//printf ("%s\n", rt);
+	return rt;	
+};
+
+

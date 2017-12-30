@@ -12,6 +12,7 @@
 ./ToySMT tests/bvsub_test.smt > tmp && diff tmp tests/bvsub_test.correct
 ./ToySMT tests/bvsub_3_args.smt > tmp && diff tmp tests/bvsub_3_args.correct
 ./ToySMT tests/bvugt_bvult_test.smt > tmp && diff tmp tests/bvugt_bvult_test.correct
+./ToySMT tests/bvugt_bvult_test2.smt > tmp && diff tmp tests/bvugt_bvult_test2.correct
 ./ToySMT tests/bvuge_bvule_test.smt > tmp && diff tmp tests/bvuge_bvule_test.correct
 ./ToySMT tests/bvsub_1_arg.smt > tmp && diff tmp tests/bvsub_1_arg.correct
 
@@ -25,6 +26,7 @@ then
 fi
 
 ./ToySMT tests/distinct2.smt > tmp && diff tmp tests/distinct2.correct
+./ToySMT tests/distinct3.smt > tmp && diff tmp tests/distinct3.correct
 ./ToySMT tests/zero_extend_test.smt > tmp && diff tmp tests/zero_extend_test.correct
 ./ToySMT tests/extract_test.smt > tmp && diff tmp tests/extract_test.correct
 ./ToySMT tests/ite_test1.smt > tmp && diff tmp tests/ite_test1.correct
@@ -38,4 +40,5 @@ fi
 ./ToySMT tests/t1.smt > tmp && diff tmp tests/t1.correct
 ./ToySMT tests/XOR_alter.smt > tmp && diff tmp tests/XOR_alter.correct
 ./ToySMT tests/modinv.smt > tmp && diff tmp tests/modinv.correct
+./ToySMT tests/bvneg_count_fixpoints.smt > tmp && diff tmp tests/bvneg_count_fixpoints.correct
 
