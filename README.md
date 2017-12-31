@@ -17,3 +17,8 @@ Requires: flex/bison, boehm gc.
 In Ubuntu Linux, type "make".
 I wasn't checked on other OS-es.
 
+Since it's early preview, it was only checked on "tests" and "examples" you can find here.
+Anything else can fail.
+Also, error reporting is somewhat user-unfriendly.
+First, you can check your .smt files using other SMT solver (I used z3, Boolector, STP, Yices, CVC4).
+
