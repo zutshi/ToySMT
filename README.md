@@ -31,3 +31,9 @@ Many SAT Python-based examples has been published in my blog: https://yurichev.c
 And at some point I realised I can do simple SMT-solver, I need only to add parser and keep tabs on variables.
 This is what I did.
 
+## Extreme simplicity
+
+It has no optimizations at all.
+If it encounters two "(bvadd x y)", two adders would be generated instead of one.
+Maybe SAT-solver (minisat in this case) could optimize this out, or maybe not.
+
