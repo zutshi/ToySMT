@@ -22,3 +22,12 @@ Anything else can fail.
 Also, error reporting is somewhat user-unfriendly.
 First, you can check your .smt files using other SMT solver (I used z3, Boolector, STP, Yices, CVC4).
 
+## History
+
+I've written many SAT examples in Python, based on this library (or API):
+https://github.com/DennisYurichev/SAT_SMT_article/blob/master/libs/Xu.py
+Many SAT Python-based examples has been published in my blog: https://yurichev.com/blog/
+
+And at some point I realised I can do simple SMT-solver, I need only to add parser and keep tabs on variables.
+This is what I did.
+
