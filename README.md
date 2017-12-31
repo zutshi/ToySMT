@@ -15,7 +15,7 @@ Aside from SMT-LIB standard, I also added two more commands: (get-all-models) an
 
 Requires: flex/bison, boehm gc.
 In Ubuntu Linux, type "make".
-I wasn't checked on other OS-es.
+It wasn't checked on other OS-es.
 
 Since it's early preview, it was only checked on "tests" and "examples" you can find here.
 Anything else can fail.

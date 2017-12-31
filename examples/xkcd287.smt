@@ -1,4 +1,4 @@
-; TODO create PR?
+; https://yurichev.com/blog/xkcd287/
 
 ; (suspiciously slow) z3 -smt2 xkcd287.smt  23.99s user 0.13s system 97% cpu 24.635 total
 ; ./ToySMT xkcd287.smt  3.42s user 0.07s system 95% cpu 3.672 total
