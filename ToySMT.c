@@ -105,14 +105,6 @@ struct expr* create_vararg_expr(enum OP t, struct expr* args)
 
 struct expr* create_distinct_expr(struct expr* args)
 {
-/*
-	printf ("%s(). input=\n", __FUNCTION__);
-	for (struct expr* e=args; e; e=e->next)
-	{
-		print_expr(e);
-		printf ("\n");
-	};
-*/
 	// for 3 args:
 	// and (a!=b, a!=c, b!=c)
 
@@ -126,6 +118,7 @@ struct expr* create_distinct_expr(struct expr* args)
 	else
 	{
 		// >2 expr in chain:
+
 		struct expr* e1=args;
 		struct expr* big_AND_expr=NULL;
 		for (struct expr* e2=args->next; e2; e2=e2->next)
@@ -587,13 +580,9 @@ struct variable* generate_BVADD(struct variable* v1, struct variable* v2)
 	assert(v2->type==TY_BITVEC);
 	assert(v1->width==v2->width);
 
-	// TODO make func?
-	struct variable* always_false=create_internal_variable("internal", TY_BOOL, 1);
-	add_clause1(-always_false->var_no);
-
 	struct variable *sum;
 	struct variable *carry_out;
-	generate_adder(v1, v2, always_false, &sum, &carry_out);
+	generate_adder(v1, v2, var_always_false, &sum, &carry_out);
 	return sum;
 };
 
@@ -713,6 +702,7 @@ struct variable* generate_BVUGE(struct variable* v1, struct variable* v2)
 struct variable* generate_ITE(struct variable* sel, struct variable* t, struct variable* f);
 
 // it's like SUBGE in ARM CPU in ARM mode
+// rationale: used in divisor!
 void generate_BVSUBGE(struct variable* enable, struct variable* v1, struct variable* v2,
 	struct variable** output, struct variable** cond)
 {
@@ -942,7 +932,6 @@ struct variable* generate_zero_extend(struct variable *in, int zeroes_to_add)
 	add_Tseitin_EQ_bitvecs(in->width, in->var_no, rt->var_no);
 
 	for (int i=0; i<zeroes_to_add; i++)
-		//add_Tseitin_EQ(rt->var_no + in->width + i, VAR_ALWAYS_FALSE);
 		add_clause1(-(rt->var_no + in->width + i));
 
 	return rt;
@@ -954,6 +943,7 @@ void add_Tseitin_always_false(int v, int width)
 		add_Tseitin_EQ(v+i, VAR_ALWAYS_FALSE);
 };
 
+// cnt is not a SMT variable!
 struct variable* generate_shift_left(struct variable* X, unsigned int cnt)
 {
 	int w=X->width;
@@ -966,6 +956,7 @@ struct variable* generate_shift_left(struct variable* X, unsigned int cnt)
 	return rt;
 };
 
+// cnt is not a SMT variable!
 struct variable* generate_shift_right(struct variable* X, unsigned int cnt)
 {
 	int w=X->width;
@@ -1034,7 +1025,7 @@ void add_Tseitin_ITE (int s, int t, int f, int x)
         add_clause3(s, -f, x);
 	add_clause3(s, f, -x);
 };
-		
+
 struct variable* generate_ITE(struct variable* sel, struct variable* t, struct variable* f)
 {
 	assert (sel->type==TY_BOOL);
@@ -1199,7 +1190,8 @@ bool run_SAT_solver_and_get_solution()
 	if (rt==32512)
 		die ("Error: minisat execitable not found. install it please.\n");
 
-	// TODO parse_SAT_response()
+	// parse SAT response:
+
 	size_t buflen=next_var_no*10;
 	char *buf=xmalloc(buflen);
 	assert(buf);
@@ -1237,8 +1229,7 @@ bool run_SAT_solver_and_get_solution()
 
 void check_sat()
 {
-	bool rt=run_SAT_solver_and_get_solution();
-	if (rt)
+	if (run_SAT_solver_and_get_solution())
 	{
 		sat=true;
 		printf ("sat\n");
