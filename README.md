@@ -35,7 +35,7 @@ and "MK85" ( after Soviet programmable calculator [Elektronika MK-85](http://www
 
 ## History
 
-I've written many SAT examples in Python, based on this library (or API):
+I've written many SAT examples in Python, based on my Python library (or API):
 https://github.com/DennisYurichev/SAT_SMT_article/blob/master/libs/Xu.py
 Many SAT Python-based examples has been published in my blog: https://yurichev.com/blog/
 
