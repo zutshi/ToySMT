@@ -31,7 +31,7 @@ Any suggestions?
 
 Since other SMT-solvers use cryptic acronyms as names, and since the name of Z3 has probably been taken from Z3 computer,
 I'm considering name "RK86" ( after Soviet DIY home computer [Radio-86RK](https://en.wikipedia.org/wiki/Radio-86RK) )
-and "MK61" ( after Soviet programmable calculator [Elektronika MK-61](https://en.wikipedia.org/wiki/Elektronika_MK-61) ).
+and "MK85" ( after Soviet programmable calculator [Elektronika MK-85](http://www.leningrad.su/museum/show_calc.php?n=224) ).
 
 ## History
 
