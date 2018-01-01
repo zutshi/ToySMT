@@ -22,6 +22,9 @@ Anything else can fail.
 Also, error reporting is somewhat user-unfriendly.
 First, you can check your .smt files using other SMT solver (I used z3, Boolector, STP, Yices, CVC4).
 
+ToySMT Not to be confused with this project: https://github.com/msakai/toysolver
+Perhaps, I should find another name...
+
 ## History
 
 I've written many SAT examples in Python, based on this library (or API):
