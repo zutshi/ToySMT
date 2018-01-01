@@ -22,9 +22,15 @@ Anything else can fail.
 Also, error reporting is somewhat user-unfriendly.
 First, you can check your .smt files using other SMT solver (I used z3, Boolector, STP, Yices, CVC4).
 
+## Naming
+
 ToySMT is not to be confused with this project: https://github.com/msakai/toysolver
 Perhaps, I should find another name...
+
 Any suggestions?
+
+Since other SMT-solvers use cryptic acronyms as names, and since the name of Z3 has probably been taken from Z3 computer,
+I'm considering name "RK86" ( after Soviet DIY home computer Radio-86RK: https://en.wikipedia.org/wiki/Radio-86RK ).
 
 ## History
 
