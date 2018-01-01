@@ -42,6 +42,8 @@ Many SAT Python-based examples has been published in my blog: https://yurichev.c
 And at some point I realised I can do simple SMT-solver, I need only to add parser and keep tabs on variables.
 This is what I did.
 
+Hence, in order to fully understand ToySMT, you can first try to understand my SAT Python-based examples.
+
 ## Extreme simplicity
 
 It has no optimizations at all.
