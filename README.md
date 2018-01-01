@@ -24,6 +24,7 @@ First, you can check your .smt files using other SMT solver (I used z3, Boolecto
 
 ToySMT Not to be confused with this project: https://github.com/msakai/toysolver
 Perhaps, I should find another name...
+Any suggestions?
 
 ## History
 
